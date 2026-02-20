@@ -9,8 +9,7 @@
 
 <div align="center">
 
-  [![API Docs](https://img.shields.io/badge/🌐%20API%20Docs-009688?style=for-the-badge)](http://localhost:8000/docs)
-  [![GitHub](https://img.shields.io/badge/Ver%20Código-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/seu-usuario/auth-service)
+  [![API Docs](https://img.shields.io/badge/🌐%20API%20Docs-009688?style=for-the-badge)](https://authservice-mbul.onrender.com/docs)
   [![Licença](https://img.shields.io/badge/Licença-MIT-4ade80?style=for-the-badge)](./LICENSE)
   [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](./Dockerfile)
   [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -22,6 +21,21 @@
 
 <div align="center">
   <img src="./read-model/img/Banner.png" alt="Banner AuthService" width="100%"/>
+</div>
+
+---
+
+## 🌐 Demonstração
+
+<div align="center">
+
+| | |
+|---|---|
+| 🔗 **Aplicação** | [authservice-mbul.onrender.com](https://authservice-mbul.onrender.com) |
+| 📖 **API Docs** | [authservice-mbul.onrender.com/docs](https://authservice-mbul.onrender.com/docs) |
+| 📡 **Health Check** | [authservice-mbul.onrender.com/health](https://authservice-mbul.onrender.com/health) |
+| ⚠️ **Aviso** | Hospedado no plano gratuito do Render — primeira requisição pode levar até **50 segundos** devido ao cold start |
+
 </div>
 
 ---
@@ -217,20 +231,20 @@ Documentação interativa disponível em **`/docs`** após subir o serviço.
 
 **Registrar usuário:**
 ```bash
-curl -X POST http://localhost:8000/register \
+curl -X POST https://authservice-mbul.onrender.com/register \
   -H "Content-Type: application/json" \
   -d '{"email": "usuario@email.com", "password": "Senha123"}'
 ```
 
 **Obter token:**
 ```bash
-curl -X POST http://localhost:8000/token \
+curl -X POST https://authservice-mbul.onrender.com/token \
   -d "username=usuario@email.com&password=Senha123"
 ```
 
 **Acessar rota protegida:**
 ```bash
-curl http://localhost:8000/me \
+curl https://authservice-mbul.onrender.com/me \
   -H "Authorization: Bearer SEU_TOKEN_AQUI"
 ```
 
@@ -244,13 +258,13 @@ Crie um arquivo `.env` na raiz do projeto:
 |---|---|---|---|
 | `SECRET_KEY` | Chave secreta para assinar tokens JWT | — | ✅ Sim |
 | `ALGORITHM` | Algoritmo de assinatura JWT | `HS256` | Não |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Expiração do token em minutos | `30` | Não |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Expiração do token em minutos | `60` | Não |
 
 **Exemplo `.env`:**
 ```env
 SECRET_KEY=sua-chave-secreta-muito-longa-e-aleatoria-aqui
 ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
+ACCESS_TOKEN_EXPIRE_MINUTES=60
 ```
 
 Gere uma `SECRET_KEY` segura:
@@ -268,8 +282,8 @@ python -c "import secrets; print(secrets.token_hex(32))"
 
 **1. Clone o repositório:**
 ```bash
-git clone https://github.com/seu-usuario/auth-service.git
-cd auth-service
+git clone https://github.com/https-shini/AuthService.git
+cd AuthService
 ```
 
 **2. Configure o ambiente:**
@@ -305,8 +319,8 @@ docker logs auth-service-v2 -f
 
 **1. Clone e crie o ambiente virtual:**
 ```bash
-git clone https://github.com/seu-usuario/auth-service.git
-cd auth-service
+git clone https://github.com/https-shini/AuthService.git
+cd AuthService
 python -m venv venv
 source venv/bin/activate   # Linux/Mac
 venv\Scripts\activate      # Windows
