@@ -6,9 +6,15 @@ from backend.dependencies.dependencies import get_user_repository, get_current_u
 from backend.core.security import create_access_token
 from backend.core.logger import get_logger
 from backend.models.user import User
+import re
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+
+def sanitize_log(value: str) -> str:
+    """Remove caracteres de nova linha para prevenir Log Injection."""
+    return re.sub(r'[\n\r]', '_', str(value))
 
 
 def get_auth_service(
@@ -22,13 +28,13 @@ async def register_user(
     user_data: UserCreate,
     auth_service: AuthService = Depends(get_auth_service),
 ):
-    logger.info(f"Tentativa de registro para o email: {user_data.email}")
+    logger.info(f"Tentativa de registro para o email: {sanitize_log(user_data.email)}")
     try:
         new_user = auth_service.register_user(user_data)
-        logger.info(f"Usuário {new_user.email} registrado com sucesso.")
+        logger.info(f"Usuário registrado com sucesso.")
         return new_user
     except HTTPException as e:
-        logger.warning(f"Falha no registro para o email {user_data.email}: {e.detail}")
+        logger.warning(f"Falha no registro: {sanitize_log(str(e.detail))}")
         raise e
 
 
@@ -37,14 +43,14 @@ async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
     auth_service: AuthService = Depends(get_auth_service),
 ):
-    logger.info(f"Tentativa de login para o email: {form_data.username}")
+    logger.info(f"Tentativa de login para o email: {sanitize_log(form_data.username)}")
     try:
         user = auth_service.authenticate_user(form_data.username, form_data.password)
         access_token = create_access_token(data={"sub": user.email})
-        logger.info(f"Login bem-sucedido para o email: {user.email}")
+        logger.info("Login bem-sucedido.")
         return {"access_token": access_token, "token_type": "bearer"}
     except HTTPException as e:
-        logger.warning(f"Falha no login para o email {form_data.username}: {e.detail}")
+        logger.warning(f"Falha no login: {sanitize_log(str(e.detail))}")
         raise e
 
 
@@ -56,5 +62,5 @@ async def health_check():
 
 @router.get("/me", response_model=UserOut, summary="Obter informações do usuário autenticado")
 async def read_users_me(current_user: User = Depends(get_current_user)):
-    logger.info(f"Acesso à rota /me pelo usuário: {current_user.email}")
+    logger.info("Acesso à rota /me pelo usuário autenticado.")
     return UserOut(id=current_user.id, email=current_user.email)
