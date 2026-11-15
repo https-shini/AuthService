@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Favicon do AuthService, na mesma construção do favicon do portfólio
+       gcruz.dev.br: quadrado arredondado em slate-950 e um único glifo de
+       traço. Aqui o glifo é o cadeado, em crimson (cor de marca). -->
+  <rect width="64" height="64" rx="14" fill="#070d19"/>
+  <g fill="none" stroke="#e11d48" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="17" y="29" width="30" height="21" rx="4"/>
+    <path d="M23 29v-6a9 9 0 0 1 18 0v6"/>
+  </g>
+  <circle cx="32" cy="39.5" r="3" fill="#f8fafc"/>
+</svg>

@@ -1,159 +1,175 @@
 <img width=100% src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6&height=120&section=header"/>
 
-<h1 align="center">📚 Documentação Arquitetural</h1>
+<h1 align="center">📚 Modelo, Regras e Fluxos</h1>
 
 <p align="center">
-  <a href="#decisões-arquiteturais">Decisões Arquiteturais</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
-  <a href="#estrutura-do-projeto">Estrutura do Projeto</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
-  <a href="#fluxo-de-funcionamento">Fluxo de Funcionamento</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
-  <a href="./README.md">Voltar</a>
+  <a href="#entidades">Entidades</a>&nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="#regras-de-negócio">Regras de negócio</a>&nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="#fluxos">Fluxos</a>&nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="#frontend">Frontend</a>&nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="#decisões-arquiteturais">Decisões</a>&nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="../README.md">Voltar ao README</a>
 </p>
 
 ---
 
-## Decisões Arquiteturais
+Este documento descreve **o que está implementado hoje**. O que ainda é plano está na seção "Pendências / Roadmap" do [README](../README.md).
 
-O **AuthService** foi construído com separação clara de responsabilidades em camadas, seguindo os princípios de Clean Architecture de forma pragmática para o escopo do projeto.
+## Entidades
 
-### Por que FastAPI?
-FastAPI oferece validação automática de dados via Pydantic, documentação Swagger gerada automaticamente em `/docs`, suporte nativo a async e injeção de dependências — tudo sem boilerplate excessivo. É a escolha ideal para um serviço de autenticação moderno em Python.
+O domínio tem uma única entidade persistida, `User`, e nenhum relacionamento.
 
-### Por que armazenamento in-memory?
-O repositório `UserRepository` usa um dicionário Python como banco de dados. Essa decisão foi intencional para manter o projeto focado na lógica de autenticação, sem dependência externa de banco de dados. A camada de repositório está isolada — substituir por SQLAlchemy + PostgreSQL exigiria alterações apenas em `user_repository.py`, sem tocar no service ou nas rotas.
+### `User` — `backend/models/user.py`
 
-### Por que o frontend é servido pelo próprio backend?
-Montar o frontend como `StaticFiles` no FastAPI elimina a necessidade de um servidor web separado (Nginx, por exemplo), simplificando o deploy para um único container. As rotas da API são registradas **antes** da montagem estática, garantindo prioridade correta.
+| Atributo | Tipo | Origem | Observação |
+|---|---|---|---|
+| `id` | `int` | gerado pelo repositório | auto-incremental a partir de 1, por processo |
+| `email` | `str` | cadastro | validado como `EmailStr`; o domínio é normalizado para minúsculas pelo validador, a parte local não |
+| `hashed_password` | `str` | cadastro | hash bcrypt com salt aleatório; a senha em texto nunca é guardada |
 
-### Por que JWT com HS256?
-JWT stateless elimina a necessidade de sessões no servidor. HS256 com uma `SECRET_KEY` forte é suficiente para o escopo do projeto. O token carrega apenas o `sub` (e-mail do usuário) e o `exp` (expiração), seguindo o princípio de mínimo privilégio.
+> **Não existe campo de nome.** Versões anteriores do frontend pediam "nome completo", mas o valor era descartado: o backend nunca o recebeu nem o persistiu. O frontend atual não coleta nome. Adicionar `name` exige mudança no modelo e no schema (ver roadmap).
 
----
+### Schemas (DTOs) — `backend/schemas/user_schemas.py`
 
-## Estrutura do Projeto
+| Schema | Uso | Campos |
+|---|---|---|
+| `UserCreate` | corpo de `POST /register` | `email: EmailStr`, `password: str` (validado, ver regras) |
+| `UserOut` | resposta de `/register` e `/me` | `id: int`, `email: EmailStr` |
+| `Token` | resposta de `/token` | `access_token: str`, `token_type: str` (sempre `"bearer"`) |
 
-### Camadas do Backend
+O login não usa schema próprio: recebe `OAuth2PasswordRequestForm` (form-urlencoded com `username` e `password`).
 
-```
-HTTP Request
-     │
-     ▼
-auth_routes.py      ← Controller: valida entrada, chama service, retorna resposta HTTP
-     │
-     ▼
-auth_service.py     ← Service: regras de negócio (registro, autenticação)
-     │
-     ▼
-user_repository.py  ← Repository: acesso e persistência de dados
-     │
-     ▼
-user.py             ← Model: entidade de domínio (sem dependências externas)
-```
+### Payload do JWT — `backend/core/security.py`
 
-### Módulos do Core
-
-| Módulo | Responsabilidade |
+| Claim | Conteúdo |
 |---|---|
-| `core/config.py` | Carrega variáveis de ambiente via pydantic-settings |
-| `core/security.py` | Hash bcrypt e operações JWT (criar/decodificar) |
-| `core/logger.py` | Logger configurado para stdout (compatível com Docker) |
-| `dependencies/dependencies.py` | Singleton do repositório e `get_current_user` para proteção de rotas |
-| `schemas/user_schemas.py` | DTOs de entrada e saída com validação Pydantic |
+| `sub` | e-mail do usuário |
+| `exp` | instante de expiração (agora + `ACCESS_TOKEN_EXPIRE_MINUTES`) |
+
+Assinatura `HS256` (configurável por `ALGORITHM`) com `SECRET_KEY`. Não há `iat`, `jti`, papéis ou outros claims.
+
+### Armazenamento — `backend/repositories/user_repository.py`
+
+`UserRepository` guarda `Dict[int, User]` em memória, com uma instância única (singleton) criada em `dependencies.py`. A busca por e-mail percorre todos os usuários (O(n)) e compara a string exatamente. Tudo se perde quando o processo reinicia.
 
 ---
 
-### Frontend (`frontend/`)
+## Regras de negócio
 
-**`index.html` — Login / Cadastro**
-- Toggle animado entre formulários com CSS puro (sem JavaScript para animar)
-- Painel lateral deslizante no desktop usando `transform` + `z-index`
-- Mobile: empilhamento vertical com transição suave
-- Medidor de força de senha: 5 critérios (comprimento, maiúscula, número, especial, comprimento extra)
+| # | Regra | Onde | Resultado quando violada |
+|---|---|---|---|
+| R1 | E-mail precisa ser válido | `UserCreate.email` (`EmailStr`) | `422` |
+| R2 | Senha com no mínimo 8 caracteres | `UserCreate.password` (`min_length=8`) | `422` |
+| R3 | Senha com pelo menos um número | validador `password_strength` | `422` — "A senha deve conter pelo menos um número" |
+| R4 | Senha com pelo menos uma letra | validador `password_strength` | `422` — "A senha deve conter pelo menos uma letra" |
+| R5 | E-mail único | `AuthService.register_user` | `400` — "Email já registrado" |
+| R6 | Login exige e-mail existente e senha que confere com o hash | `AuthService.authenticate_user` | `401` — "Email ou senha incorretos" |
+| R7 | Rotas protegidas exigem token válido, não expirado, cujo `sub` exista | `get_current_user` | `401` — "Não foi possível validar as credenciais" |
 
-**`home.html` — Dashboard**
-- Carrega dados do usuário via `GET /me` com Bearer Token
-- Exibe token JWT completo com função de cópia para clipboard
-- Estado sem sessão: tela de acesso negado com redirecionamento
-- Informações de sessão: status, expiração, origem, algoritmo
-
-**`status.html` — Monitoramento**
-- Ping individual de cada endpoint com medição de latência (`performance.now()`)
-- Log terminal com timestamp, codificação por cor e scroll automático
-- Cards de endpoint exibem: método HTTP, path, autenticação, schema e última verificação
-
-**`js/utils.js` — Utilitários compartilhados**
-- `Session`: wrapper do `sessionStorage` para token, e-mail e senha
-- `showAlert` / `showPageAlert`: sistema de alertas inline e temporários
-- `toggleEye`: alternância de visibilidade de campos de senha
-- `parseApiError`: extrai mensagem legível de erros FastAPI (string ou array de validação)
-
-**`css/tokens.css` — Design System**
-- Dois temas completos (`[data-theme="dark"]` e `[data-theme="light"]`)
-- Grid terminal de fundo via `background-image: linear-gradient(...)` — sem imagens externas
-- Variáveis semânticas: `--color-accent`, `--color-danger`, `--color-surface-raised`, etc.
+Observações:
+- R3 e R4 usam `str.isdigit()` e `str.isalpha()`, que aceitam caracteres Unicode (letras acentuadas contam como letra).
+- Maiúsculas e símbolos **não** são exigidos. O medidor de força do frontend os valoriza, mas é só indicativo.
+- O e-mail é comparado exatamente (R5, R6): `Usuario@x.com` e `usuario@x.com` são contas diferentes.
 
 ---
 
-## Fluxo de Funcionamento
+## Fluxos
 
-### Registro de usuário
-
-```
-1. Usuário preenche nome, e-mail e senha no formulário
-2. Frontend valida campos (não vazio) e envia POST /register
-3. UserCreate (Pydantic) valida: EmailStr, min_length=8, dígito e letra
-4. AuthService verifica se e-mail já existe no repositório
-5. bcrypt gera hash da senha com salt aleatório
-6. UserRepository salva o usuário com ID auto-incrementado
-7. UserOut (id, email) é retornado — senha nunca exposta
-```
-
-### Autenticação e acesso a rota protegida
+### Cadastro
 
 ```
-1. Usuário preenche e-mail e senha no formulário de login
-2. Frontend envia POST /token com form-encoded (username + password)
-3. AuthService busca usuário por e-mail e verifica hash bcrypt
-4. JWT é gerado com sub=email e exp=agora+30min, assinado com SECRET_KEY
-5. Frontend armazena token no sessionStorage
-6. Requisição a GET /me inclui Authorization: Bearer <token>
-7. get_current_user decodifica o JWT, extrai e-mail, busca usuário no repositório
-8. Dados do usuário são retornados (id, email)
+1. Usuário informa e-mail e senha na aba "Criar conta".
+2. Frontend valida no cliente as mesmas regras R1–R4 e mostra os erros por campo.
+3. POST /register  (JSON { email, password })
+4. Pydantic valida R1–R4  → 422 com a lista de erros, se houver.
+5. AuthService verifica R5 → 400 se o e-mail já existe.
+6. bcrypt gera o hash; o repositório salva o usuário com o próximo ID.
+7. 200 { id, email }. A senha nunca volta na resposta.
+8. Frontend muda para a aba "Entrar" com o e-mail preenchido.
 ```
 
-### Proteção de rotas
+### Login e acesso à rota protegida
+
+```
+1. POST /token  (form username=<e-mail>, password)
+2. AuthService busca o usuário e confere o hash (R6) → 401 se falhar.
+3. JWT com sub=e-mail e exp=agora+N minutos, assinado com SECRET_KEY.
+4. 200 { access_token, token_type: "bearer" }
+5. Frontend guarda só o token no sessionStorage (e o horário do login) e vai para o painel.
+6. GET /me com Authorization: Bearer <token>
+7. get_current_user decodifica e valida o token, busca o usuário pelo sub (R7).
+8. 200 { id, email }
+```
+
+### Expiração e encerramento de sessão (frontend)
+
+```
+· O painel lê exp do token apenas para exibir o prazo e agendar o encerramento.
+· Quando o prazo chega, ou quando qualquer chamada a /me volta 401:
+    remove o token do navegador → mostra "Sessão expirada" ou "Sessão inválida".
+· "Encerrar sessão" remove os dados locais e volta à página de acesso.
+· Não há logout no servidor: um token copiado continua válido até expirar.
+```
+
+### Proteção de rota (backend)
 
 ```python
-# dependencies.py
-def get_current_user(
-    token: str = Depends(oauth2_scheme),      # extrai Bearer do header
-    user_repo: UserRepository = Depends(...), # singleton do repositório
-) -> User:
-    payload = decode_access_token(token)      # decodifica e valida JWT
-    email = payload.get("sub")                # extrai identidade
-    user = user_repo.get_by_email(email)      # busca usuário
-    return user                               # injeta na rota
+# backend/dependencies/dependencies.py
+def get_current_user(token = Depends(oauth2_scheme), user_repo = Depends(get_user_repository)) -> User:
+    payload = decode_access_token(token)        # None se assinatura/expiração falharem
+    email = payload.get("sub")                  # identidade
+    user = user_repo.get_by_email(email)        # precisa existir
+    return user                                 # qualquer falha acima → 401
 ```
 
 ---
 
-## Configuração e Deploy
+## Frontend
 
-### Variáveis de ambiente
+O frontend é estático (HTML, CSS e JS nativos), servido pelo FastAPI na raiz. Não há build.
 
-O `config.py` usa `pydantic-settings` com `SettingsConfigDict(env_file=".env")`. A `SECRET_KEY` não possui valor padrão — se ausente, a aplicação falha na inicialização com erro explícito, evitando deploy acidental sem configuração.
+| Página | Responsabilidade | Endpoints usados |
+|---|---|---|
+| `index.html` | Entrar e criar conta, aviso de sessão ativa/expirada, indicador de disponibilidade | `/token`, `/register`, `/health` |
+| `home.html` | Painel: identidade, conta, sessão, token oculto, atualizar e encerrar sessão | `/me` |
+| `status.html` | Verificações reais, legenda de estados, contratos e histórico da visita | `/health`, `/me` |
 
-### Docker
+### Estado guardado no navegador
 
-O `Dockerfile` usa `python:3.11-slim` para imagem enxuta. O `COPY` das pastas `backend/` e `frontend/` é feito após a instalação das dependências, aproveitando o cache de layers do Docker — rebuilds sem mudanças no `requirements.txt` são mais rápidos.
+| Chave | Armazenamento | Conteúdo |
+|---|---|---|
+| `auth_token` | `sessionStorage` | o JWT de acesso |
+| `auth_login_at` | `sessionStorage` | horário do login neste navegador (milissegundos) |
+| `auth_theme` | `localStorage` | `dark` ou `light`, só quando o usuário escolhe |
 
-O `HEALTHCHECK` do Dockerfile aponta para `GET /health`, permitindo que o Docker Compose (e orquestradores como Kubernetes) monitorem a saúde do container automaticamente.
+As chaves `auth_pass` (senha em texto) e `auth_email`, gravadas por versões anteriores, são apagadas automaticamente na carga de qualquer página.
+
+### Estados da página de status
+
+| Estado | Significado |
+|---|---|
+| Disponível | a rota respondeu com sucesso agora |
+| Indisponível | a rota respondeu com erro HTTP (4xx/5xx, exceto 401) |
+| Falha de autenticação | `/me` respondeu 401 (o token local é removido) |
+| Falha de comunicação | sem resposta (rede, servidor fora, timeout de 10 s) |
+| Não verificado | a rota não foi consultada: `/register` e `/token` nunca são chamados automaticamente, e `/me` precisa de sessão |
 
 ---
 
-> **Limitações conhecidas e próximos passos**
->
-> - Armazenamento in-memory: dados perdidos ao reiniciar o container. Próximo passo natural: SQLite com SQLAlchemy.
-> - Sem rate limiting no endpoint `/token`: vulnerável a força bruta. Recomendado: `slowapi` ou middleware customizado.
-> - Busca de usuário por e-mail é O(n): aceitável em escala pequena. Melhoria: índice por e-mail com `Dict[str, User]`.
+## Decisões arquiteturais
+
+**FastAPI** — validação automática com Pydantic, documentação em `/docs` e injeção de dependências com pouco código.
+
+**Camadas** — rotas → service → repository → model. O service não conhece HTTP além das exceções e o repositório isola o armazenamento: trocar o dicionário em memória por um banco afeta só `user_repository.py`.
+
+**Armazenamento em memória** — escolha deliberada para manter o foco na autenticação, sem dependência externa. O custo é perder os dados a cada reinício.
+
+**Frontend servido pelo backend** — `StaticFiles` montado em `/` depois das rotas da API: um único processo e um único container, sem Nginx e sem CORS (mesma origem).
+
+**JWT HS256 stateless** — sem sessão no servidor. O token carrega o mínimo (`sub`, `exp`).
+
+**Frontend sem framework** — três páginas pequenas não justificam build ou dependências. Módulos ES nativos dão organização (`js/core/` compartilhado e `js/pages/` por página) sem ferramenta extra.
+
+**Identidade do portfólio** — os tokens de cor, tipografia, raio e movimento vêm do design system de [gcruz.dev.br](https://gcruz.dev.br), para que os projetos do autor sejam reconhecidos como parte da mesma família.
 
 <img width=100% src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6&height=120&section=footer"/>

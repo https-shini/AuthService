@@ -1,0 +1,421 @@
+/* ==========================================================================
+   layout.css — Estrutura compartilhada pelas três páginas
+   Atmosfera de fundo, header, navegação, conteúdo principal e rodapé.
+   Depende de: tokens.css, base.css
+   ========================================================================== */
+
+/* Atmosfera ---------------------------------------------------------------
+   Mesma composição do AmbientBackground do portfólio, sem JavaScript:
+   mancha crimson no canto superior esquerdo, mancha índigo no inferior
+   direito (ciclos de 96s e 124s, incomensuráveis para não repetir o
+   compasso), um véu diagonal e a malha de pontos de 26px. */
+.ambient {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-ambient);
+    overflow: hidden;
+    pointer-events: none;
+    background: var(--ambient-veil);
+    contain: strict;
+}
+
+.ambient::before,
+.ambient::after {
+    content: "";
+    position: absolute;
+    width: clamp(300px, calc(27vw + 27vh), 760px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    will-change: transform;
+}
+
+.ambient::before {
+    top: calc(-7vw - 7vh);
+    left: calc(-7vw - 7vh);
+    background: radial-gradient(
+        circle,
+        color-mix(in srgb, var(--color-brand) var(--ambient-brand-alpha), transparent) 0%,
+        color-mix(in srgb, var(--color-brand) 6%, transparent) 48%,
+        transparent 80%
+    );
+    animation: ambient-a 96s ease-in-out infinite;
+}
+
+.ambient::after {
+    right: calc(-7vw - 7vh);
+    bottom: calc(-7vw - 7vh);
+    background: radial-gradient(
+        circle,
+        color-mix(in srgb, var(--color-accent) var(--ambient-accent-alpha), transparent) 0%,
+        color-mix(in srgb, var(--color-accent) 5%, transparent) 48%,
+        transparent 80%
+    );
+    animation: ambient-b 124s ease-in-out infinite;
+}
+
+.ambient__grid {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(var(--dots-color) 1px, transparent 1px);
+    background-size: 26px 26px;
+    -webkit-mask-image: radial-gradient(ellipse 92% 78% at 50% 42%, #000 46%, transparent 100%);
+    mask-image: radial-gradient(ellipse 92% 78% at 50% 42%, #000 46%, transparent 100%);
+}
+
+@keyframes ambient-a {
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+    50% {
+        transform: translate(6vw, -6vh) scale(1.22);
+    }
+}
+
+@keyframes ambient-b {
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1.1);
+    }
+    50% {
+        transform: translate(-5vw, 5vh) scale(0.9);
+    }
+}
+
+/* Logo tipográfico --------------------------------------------------------
+   Mesma construção da marca <gcruz.dev/>: colchetes em crimson, nome na
+   cor de texto principal, extensão em índigo. */
+.logo {
+    display: inline-flex;
+    align-items: baseline;
+    font-family: var(--font-mono);
+    font-size: var(--text-md);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.logo__bracket {
+    color: var(--color-brand-text);
+    transition: color var(--transition-fast);
+}
+
+.logo__name {
+    color: var(--color-text-1);
+}
+
+.logo__ext {
+    color: var(--color-accent-light);
+    transition: color var(--transition-fast);
+}
+
+a.logo:hover .logo__bracket,
+a.logo:focus-visible .logo__bracket {
+    color: var(--color-brand-light);
+}
+
+a.logo:hover .logo__ext,
+a.logo:focus-visible .logo__ext {
+    color: var(--color-accent);
+}
+
+.logo--sm {
+    font-size: var(--text-sm);
+}
+
+/* Header -------------------------------------------------------------------- */
+.site-header {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-header);
+    background: var(--color-veil);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border-bottom: 1px solid var(--color-border-2);
+}
+
+.site-header__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    width: min(100% - 2 * var(--gutter), var(--layout-max));
+    height: var(--header-height);
+    margin-inline: auto;
+}
+
+.site-header__logo {
+    flex-shrink: 0;
+    outline-offset: 6px;
+}
+
+.site-header__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+/* Navegação principal (desktop) */
+.site-nav {
+    display: none;
+}
+
+.site-nav__list {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+.site-nav__link {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-text-3);
+    border-radius: var(--radius-md);
+    transition:
+        color var(--transition-fast),
+        background-color var(--transition-fast);
+}
+
+.site-nav__link::after {
+    content: "";
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    width: 0;
+    height: 2px;
+    background: var(--color-brand);
+    border-radius: var(--radius-full);
+    transform: translateX(-50%);
+    transition: width var(--transition-base);
+}
+
+.site-nav__link:hover,
+.site-nav__link[aria-current="page"] {
+    color: var(--color-text-1);
+    background: var(--color-surface-2);
+}
+
+.site-nav__link:hover::after,
+.site-nav__link[aria-current="page"]::after {
+    width: 60%;
+}
+
+/* No claro o portfólio usa surface-3 no item ativo (surface-2 some no fundo). */
+:root[data-theme="light"] .site-nav__link:hover,
+:root[data-theme="light"] .site-nav__link[aria-current="page"],
+:root[data-theme="light"] .mobile-nav__link:hover,
+:root[data-theme="light"] .mobile-nav__link[aria-current="page"] {
+    background: var(--color-surface-3);
+}
+
+/* Botão de ícone (tema, menu) */
+.icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    color: var(--color-text-3);
+    background: color-mix(in srgb, var(--color-surface-2) 65%, transparent);
+    border: 1px solid var(--color-border-2);
+    border-radius: var(--radius-md);
+    box-shadow: var(--surface-edge);
+    transition:
+        color var(--transition-fast),
+        border-color var(--transition-fast),
+        transform var(--transition-fast);
+}
+
+.icon-btn:hover {
+    color: var(--color-text-1);
+    border-color: var(--color-brand);
+    transform: translateY(-1px);
+}
+
+.icon-btn .icon {
+    width: 18px;
+    height: 18px;
+}
+
+/* O ícone do tema mostra o destino: sol no escuro, lua no claro. */
+.theme-toggle .icon--moon,
+:root[data-theme="light"] .theme-toggle .icon--sun {
+    display: none;
+}
+
+:root[data-theme="light"] .theme-toggle .icon--moon {
+    display: block;
+}
+
+.nav-toggle .icon--close,
+.nav-toggle[aria-expanded="true"] .icon--menu {
+    display: none;
+}
+
+.nav-toggle[aria-expanded="true"] .icon--close {
+    display: block;
+}
+
+/* Navegação móvel */
+.mobile-nav {
+    border-top: 1px solid var(--color-border-2);
+    background: var(--color-veil);
+}
+
+.mobile-nav__list {
+    display: grid;
+    gap: var(--space-1);
+    width: min(100% - 2 * var(--gutter), var(--layout-max));
+    margin-inline: auto;
+    padding-block: var(--space-3);
+}
+
+.mobile-nav__link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: var(--tap-min);
+    padding: var(--space-2) var(--space-3);
+    font-weight: 500;
+    color: var(--color-text-2);
+    border-radius: var(--radius-md);
+    border-left: 2px solid transparent;
+}
+
+.mobile-nav__link:hover,
+.mobile-nav__link[aria-current="page"] {
+    color: var(--color-text-1);
+    background: var(--color-surface-2);
+    border-left-color: var(--color-brand);
+}
+
+@media (min-width: 640px) {
+    .site-nav {
+        display: block;
+    }
+
+    .nav-toggle,
+    .mobile-nav {
+        display: none !important;
+    }
+}
+
+/* Conteúdo principal -------------------------------------------------------- */
+.site-main {
+    flex: 1;
+    width: min(100% - 2 * var(--gutter), var(--layout-max));
+    margin-inline: auto;
+    padding-block: clamp(var(--space-8), 4vw, var(--space-16));
+}
+
+.site-main:focus {
+    outline: none;
+}
+
+/* Cabeçalho de página: eyebrow + título + texto de apoio */
+.page-head {
+    display: grid;
+    gap: var(--space-3);
+    margin-bottom: var(--space-8);
+}
+
+.eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    letter-spacing: var(--ls-wider);
+    text-transform: uppercase;
+    color: var(--color-brand-text);
+}
+
+.eyebrow::before {
+    content: "";
+    width: 18px;
+    height: 2px;
+    flex-shrink: 0;
+    background: var(--color-brand);
+    border-radius: var(--radius-full);
+}
+
+.page-title {
+    font-size: var(--text-5xl);
+    letter-spacing: var(--ls-tight);
+}
+
+.page-lead {
+    max-width: 62ch;
+    font-size: var(--text-lg);
+    line-height: var(--lh-relaxed);
+    color: var(--color-text-3);
+}
+
+.divider-brand {
+    height: 1px;
+    border: 0;
+    background: linear-gradient(
+        to right,
+        transparent 0%,
+        color-mix(in srgb, var(--color-brand) 40%, transparent) 25%,
+        var(--color-border-2) 50%,
+        color-mix(in srgb, var(--color-accent) 30%, transparent) 75%,
+        transparent 100%
+    );
+}
+
+/* Rodapé -------------------------------------------------------------------- */
+.site-footer {
+    border-top: 1px solid var(--color-border-2);
+    background: var(--color-veil);
+}
+
+.site-footer__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3) var(--space-6);
+    width: min(100% - 2 * var(--gutter), var(--layout-max));
+    margin-inline: auto;
+    padding-block: var(--space-6);
+    font-size: var(--text-sm);
+    color: var(--color-text-3);
+}
+
+.site-footer__credit {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2);
+}
+
+.site-footer__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-4);
+}
+
+.site-footer__links a {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-height: 32px;
+    color: var(--color-text-3);
+    transition: color var(--transition-fast);
+}
+
+.site-footer__links a:hover {
+    color: var(--color-text-1);
+}
+
+.site-footer__links .icon {
+    width: 14px;
+    height: 14px;
+}

@@ -3,16 +3,16 @@
 <h1 align="center">🔐 AuthService</h1>
 
 <p align="center">
-  Sistema de autenticação fullstack com tema <strong>Dark Industrial Terminal</strong> —<br/>
-  API REST em FastAPI com JWT e frontend integrado, servido em um único container Docker.
+  Serviço de autenticação fullstack: API REST em <strong>FastAPI</strong> com <strong>JWT</strong> e <strong>bcrypt</strong>,<br/>
+  e um frontend próprio servido pelo mesmo processo, em um único container Docker.
 </p>
 
 <div align="center">
 
   [![API Docs](https://img.shields.io/badge/🌐%20API%20Docs-009688?style=for-the-badge)](https://authservice-mbul.onrender.com/docs)
-  [![Licença](https://img.shields.io/badge/Licença-MIT-4ade80?style=for-the-badge)](./LICENSE)
+  [![Licença](https://img.shields.io/badge/Licença-MIT-e11d48?style=for-the-badge)](./read-model/LICENSE)
   [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](./Dockerfile)
-  [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+  [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
   [![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 
 </div>
@@ -20,7 +20,7 @@
 ---
 
 <div align="center">
-  <img src="./read-model/img/Banner.png" alt="Banner AuthService" width="100%"/>
+  <img src="./read-model/img/Banner.png" alt="Página de acesso do AuthService no tema escuro" width="100%"/>
 </div>
 
 ---
@@ -32,347 +32,307 @@
 | | |
 |---|---|
 | 🔗 **Aplicação** | [authservice-mbul.onrender.com](https://authservice-mbul.onrender.com) |
-| 📖 **API Docs** | [authservice-mbul.onrender.com/docs](https://authservice-mbul.onrender.com/docs) |
-| 📡 **Health Check** | [authservice-mbul.onrender.com/health](https://authservice-mbul.onrender.com/health) |
-| ⚠️ **Aviso** | Hospedado no plano gratuito do Render — primeira requisição pode levar até **50 segundos** devido ao cold start |
+| 📖 **API Docs (Swagger)** | [authservice-mbul.onrender.com/docs](https://authservice-mbul.onrender.com/docs) |
+| 📡 **Health check** | [authservice-mbul.onrender.com/health](https://authservice-mbul.onrender.com/health) |
+| ⚠️ **Aviso** | Hospedado no plano gratuito do Render: a primeira requisição pode levar até **50 segundos** (cold start), e os usuários cadastrados somem a cada reinício (armazenamento em memória). |
 
 </div>
 
 ---
 
-## 📌 O que é este projeto?
+## 📌 O que é
 
-O **AuthService** é um serviço de autenticação completo que combina uma API REST com um frontend integrado. O backend em **FastAPI** gerencia registro de usuários, autenticação com tokens **JWT** e proteção de rotas. O frontend — servido pelo próprio backend como arquivos estáticos — oferece uma interface de login/cadastro animada, dashboard do usuário autenticado e painel de monitoramento da API em tempo real.
+O **AuthService** é um serviço de autenticação de escopo enxuto, pensado para estudo e portfólio. O backend registra usuários, autentica credenciais, emite tokens **JWT** e protege rotas com o esquema **Bearer**. O frontend, servido pelo próprio FastAPI como arquivos estáticos, oferece:
 
-Tudo em um único container Docker. Simples de subir, simples de usar.
+- **Acesso** — entrar e criar conta;
+- **Painel** — dados da conta autenticada e estado da sessão;
+- **Status** — verificações reais dos endpoints, feitas a partir do navegador.
+
+A identidade visual é a mesma do portfólio do autor, [gcruz.dev.br](https://gcruz.dev.br): crimson e índigo sobre neutros slate, tipografia Cabinet Grotesk, General Sans e JetBrains Mono, e o logo tipográfico `<auth.service/>` na mesma construção de `<gcruz.dev/>`.
 
 ---
 
 ## ✨ Funcionalidades
 
-- Registro de usuários com validação de e-mail e **medidor de força de senha** (5 níveis)
-- Autenticação via **JWT (HS256)** com expiração configurável
-- Rota protegida `/me` para dados do usuário autenticado
-- **Health check** da API em tempo real
-- Frontend com **tema dark/light** persistido no navegador
-- Dashboard com exibição e **cópia do token JWT** com um clique
-- Painel de status com **monitoramento de endpoints**, latência em ms e **log terminal** em tempo real
-- Layout **responsivo** — desktop, tablet e mobile
-- **Menu mobile acessível** com aria-expanded e fechamento via Escape
-- Containerização completa com **Docker e Docker Compose**
+**API**
+- Cadastro com validação de e-mail e de senha (mínimo de 8 caracteres, ao menos uma letra e um número).
+- Login pelo fluxo OAuth2 Password (`application/x-www-form-urlencoded`), com emissão de JWT assinado em HS256.
+- Rota protegida `GET /me` com `Authorization: Bearer <token>`.
+- `GET /health` para verificação de disponibilidade.
+- Documentação automática do FastAPI em `/docs` (Swagger UI), `/redoc` e `/openapi.json`.
+
+**Frontend**
+- Abas acessíveis **Entrar / Criar conta** (teclado: setas, Home, End; link direto para `#cadastro`).
+- Validação no cliente que espelha as regras do servidor, com mensagens por campo, checklist dos requisitos da senha e medidor de força apenas indicativo.
+- Mostrar/ocultar senha, botões com estado de carregamento e bloqueio de envio duplicado.
+- Painel com e-mail e ID vindos de `/me`, expiração e algoritmo lidos do próprio token, contagem regressiva e aviso de expiração próxima.
+- Tratamento de sessão: um 401 ou o fim do prazo do token removem os dados locais e levam a uma tela de "sessão expirada/inválida".
+- Token JWT **oculto por padrão** no painel, com ações explícitas de mostrar e copiar.
+- Página de status com cinco estados distintos (disponível, indisponível, falha de autenticação, falha de comunicação, não verificado), tempo de resposta medido e histórico da visita.
+- Temas escuro e claro: respeita a preferência do sistema, guarda a escolha e não pisca ao carregar.
+- Layout responsivo (360 px a desktop), navegação por teclado, foco visível, `prefers-reduced-motion` e mensagens anunciadas a leitores de tela.
 
 ---
 
-## 🖼️ Preview
+## 🖼️ Telas
 
 <div align="center">
-  <img src="./read-model/img/Login01.png" alt="Tela de Login" width="100%"/>
-  <br/><sub>Tela de Login — autenticação via credenciais</sub>
+  <img src="./read-model/img/Login01.png" alt="Página de acesso no tema escuro" width="100%"/>
+  <br/><sub>Acesso — entrar</sub>
 </div>
 
 <br/>
 
-| Login preenchido | Cadastro |
+| Login preenchido | Criar conta |
 |---|---|
-| ![Login preenchido](./read-model/img/Login02.png) | ![Cadastro](./read-model/img/Cadastro01.png) |
+| ![Formulário de login preenchido](./read-model/img/Login02.png) | ![Formulário de cadastro com checklist de senha](./read-model/img/Cadastro01.png) |
 
-<br/>
-
-| Dashboard autenticado | Sessão não encontrada |
+| Cadastro (tema claro) | Painel |
 |---|---|
-| ![Dashboard](./read-model/img/Home01.png) | ![Sem sessão](./read-model/img/Home02.png) |
+| ![Formulário de cadastro no tema claro](./read-model/img/Cadastro02.png) | ![Painel da conta autenticada](./read-model/img/Home01.png) |
 
-<br/>
-
-<div align="center">
-  <img src="./read-model/img/Status.png" alt="Painel de Status da API" width="100%"/>
-  <br/><sub>Painel de Status — monitoramento de endpoints em tempo real</sub>
-</div>
+| Sem sessão | Status da API |
+|---|---|
+| ![Painel sem sessão ativa](./read-model/img/Home02.png) | ![Página de status com verificações reais](./read-model/img/Status.png) |
 
 ---
 
-## 🧩 Páginas do frontend
+## 🛠️ Tecnologias
 
-### 🔑 Login / Cadastro (`index.html`)
-Formulário com **toggle animado em CSS puro** entre login e registro. No desktop, um painel lateral deslizante alterna entre os modos com transição suave. No mobile, os formulários se empilham verticalmente. O cadastro inclui **medidor de força de senha** em tempo real com 5 níveis: Fraca → Razoável → Boa → Forte → Excelente.
+**Backend** — FastAPI · Uvicorn · Pydantic v2 (com `email-validator`) · pydantic-settings · python-jose (JWT) · bcrypt 4.0.1 · python-multipart · python-dotenv. Apenas o `bcrypt` tem versão fixada em `requirements.txt`.
 
-### 🏠 Dashboard (`home.html`)
-Exibe os dados do usuário autenticado obtidos via `/me`. Mostra o **token JWT completo** com botão de cópia, informações de sessão (status, expiração, origem, algoritmo) e dados do perfil. O estado sem sessão exibe uma tela de acesso negado com redirecionamento direto ao login.
+**Frontend** — HTML, CSS e JavaScript nativos, sem framework e sem etapa de build. Módulos ES (`type="module"`), ícones SVG próprios em sprite (`frontend/public/icons.svg`), fontes Cabinet Grotesk e General Sans (Fontshare) e JetBrains Mono (Google Fonts).
 
-### 📡 Status da API (`status.html`)
-Painel de monitoramento com cards individuais para cada endpoint (`/health`, `/register`, `/token`, `/me`). Exibe **latência em ms**, status HTTP, autenticação requerida, schema do body/form e horário da última verificação. O **log terminal** registra todas as requisições com scroll automático e cores por tipo (success, error, info).
+**Infraestrutura** — Docker (`python:3.11-slim`) e Docker Compose, com healthcheck em `/health`. Deploy no Render. Análise de segurança com CodeQL no GitHub Actions.
 
 ---
 
-## 🛠️ Tecnologias utilizadas
-
-**Backend:**
-- **FastAPI** — framework web moderno e de alta performance
-- **Uvicorn** — servidor ASGI com suporte a uvloop
-- **Pydantic v2** — validação de dados e schemas DTOs
-- **python-jose** — geração e validação de tokens JWT
-- **bcrypt 4.0.1** — hash seguro de senhas com salt
-- **pydantic-settings** — configuração via arquivo `.env`
-
-**Frontend:**
-- **HTML5 / CSS3 / JavaScript** — vanilla, sem frameworks externos
-- **JetBrains Mono + Syne** — tipografia mono e display via Google Fonts
-- **Font Awesome** — ícones
-
-**Infraestrutura:**
-- **Docker + Docker Compose** — containerização e orquestração
-- **StaticFiles (FastAPI)** — frontend servido pelo próprio backend
-
----
-
-## 🗂️ Estrutura de arquivos
+## 🧱 Arquitetura
 
 ```
-auth-service/
-│
-├── backend/
-│   ├── api/
-│   │   └── auth_routes.py        → Controllers HTTP (registro, login, /me, /health)
-│   ├── core/
-│   │   ├── config.py             → Configurações via pydantic-settings
-│   │   ├── logger.py             → Logger configurado para stdout
-│   │   └── security.py           → bcrypt + JWT (criar/decodificar tokens)
-│   ├── dependencies/
-│   │   └── dependencies.py       → Injeção de dependências FastAPI
-│   ├── models/
-│   │   └── user.py               → Modelo de domínio User
-│   ├── repositories/
-│   │   └── user_repository.py    → Acesso a dados in-memory
-│   ├── schemas/
-│   │   └── user_schemas.py       → DTOs Pydantic (UserCreate, UserOut, Token)
-│   ├── services/
-│   │   └── auth_service.py       → Regras de negócio (registro, autenticação)
-│   └── main.py                   → Entry point FastAPI + mount do frontend
-│
+Navegador ── HTML/CSS/JS estáticos ──┐
+   │                                 │  servidos pelo mesmo processo
+   └── fetch (mesma origem) ──► FastAPI (backend/main.py)
+                                   ├── api/auth_routes.py         rotas HTTP
+                                   ├── services/auth_service.py   regras de negócio
+                                   ├── repositories/user_repository.py   dados em memória
+                                   ├── models/user.py · schemas/user_schemas.py
+                                   ├── dependencies/dependencies.py      get_current_user
+                                   └── core/ (config, security, logger)
+```
+
+As rotas da API são registradas antes de o diretório `frontend/` ser montado na raiz, então `/health`, `/register`, `/token`, `/me` e `/docs` têm prioridade sobre os arquivos estáticos.
+
+Detalhes em [read-model/MODEL.md](./read-model/MODEL.md) (modelo, regras e fluxos) e [read-model/STRUCTURE.md](./read-model/STRUCTURE.md) (estrutura e setup).
+
+---
+
+## 🗂️ Estrutura
+
+```
+AuthService/
+├── backend/                 API FastAPI (camadas: api → services → repositories → models)
 ├── frontend/
-│   ├── index.html                → Login/Cadastro com toggle animado
-│   ├── home.html                 → Dashboard do usuário autenticado
-│   ├── status.html               → Monitoramento de endpoints em tempo real
-│   ├── css/
-│   │   ├── tokens.css            → Design tokens e variáveis CSS (dark/light)
-│   │   ├── components.css        → Header, nav, botões, inputs, cards
-│   │   ├── auth.css              → Estilos exclusivos da página de auth
-│   │   ├── home.css              → Estilos do dashboard
-│   │   ├── status.css            → Estilos do painel de status
-│   │   └── responsive.css        → Breakpoints (1024px, 768px, 480px, 360px)
-│   └── js/
-│       ├── utils.js              → Helpers compartilhados (DOM, sessão, alertas)
-│       ├── theme.js              → Alternância dark/light com persistência
-│       ├── nav.js                → Menu mobile com acessibilidade
-│       ├── auth.js               → Lógica de login/cadastro e força de senha
-│       ├── home.js               → Lógica do dashboard e cópia do JWT
-│       └── status.js             → Ping de endpoints e log terminal
-│
-├── read-model/
-│   └── img/                      → Imagens do README
-│       ├── Banner.png
-│       ├── Login01.png
-│       ├── Login02.png
-│       ├── Cadastro01.png
-│       ├── Home01.png
-│       ├── Home02.png
-│       └── Status.png
-│
-├── .env                          → Variáveis de ambiente (não commitado)
-├── .env.example                  → Exemplo de configuração
-├── .gitignore
-├── docker-compose.yml
-├── Dockerfile
-├── requirements.txt
-├── CONTRIBUTING.md               → Guia de contribuição
-└── MODEL.md                      → Documentação arquitetural aprofundada
+│   ├── index.html           acesso (entrar / criar conta)
+│   ├── home.html            painel da conta
+│   ├── status.html          status da API
+│   ├── css/                 tokens, base, layout, components + um arquivo por página
+│   ├── js/
+│   │   ├── theme-init.js    aplica o tema antes da pintura
+│   │   ├── core/            api, session, dom, theme, nav (compartilhados)
+│   │   └── pages/           auth, dashboard, status (um por página)
+│   └── public/              favicon.svg e sprite de ícones icons.svg
+├── read-model/              MODEL.md, STRUCTURE.md, CONTRIBUTING.md, LICENSE, img/
+├── .github/workflows/       codeql.yml
+├── Dockerfile · docker-compose.yml · requirements.txt · .env.example
+└── README.md
 ```
+
+Árvore completa e responsabilidades de cada arquivo em [read-model/STRUCTURE.md](./read-model/STRUCTURE.md).
 
 ---
 
-## 🎨 Sistema de design
+## ⚙️ Configuração
 
-O frontend utiliza um **design system** com tokens CSS completos para dois temas:
+As variáveis são lidas de um arquivo `.env` na raiz (ou do ambiente) por `backend/core/config.py`.
 
-| Token | Tema Escuro | Tema Claro |
-|---|---|---|
-| Background | `#0d0e11` | `#f0f1f3` |
-| Surface | `#181b21` | `#ffffff` |
-| Texto primário | `#e2e8f0` | `#111827` |
-| Accent | `#4ade80` — verde neon | `#166534` — verde escuro |
-| Danger | `#f87171` | `#dc2626` |
-| Warning | `#fbbf24` | `#d97706` |
-| Border | `#2a2e38` | `#d1d5db` |
-| Grid de fundo | `rgba(255,255,255,0.025)` | `rgba(0,0,0,0.035)` |
-
-O grid terminal de fundo é gerado via `background-image` com `linear-gradient` — sem imagens externas.
-
----
-
-## 📡 Endpoints da API
-
-Documentação interativa disponível em **`/docs`** após subir o serviço.
-
-### Rotas públicas
-
-| Método | Endpoint | Descrição | Auth |
+| Variável | Descrição | Padrão no código | Valor no `.env.example` |
 |---|---|---|---|
-| `GET` | `/health` | Status e latência da API | ❌ |
-| `POST` | `/register` | Registrar novo usuário | ❌ |
-| `POST` | `/token` | Autenticar e obter token JWT | ❌ |
+| `SECRET_KEY` | Chave que assina os tokens JWT | — (obrigatória: sem ela a aplicação não inicia) | uma chave de exemplo |
+| `ALGORITHM` | Algoritmo de assinatura | `HS256` | `HS256` |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Validade do token, em minutos | `30` | `60` |
 
-### Rotas protegidas
+Ou seja: quem copia o `.env.example` sem editar tem tokens de **60 minutos**; sem a variável, valem **30**. O painel não presume nenhum dos dois: ele lê a expiração real (`exp`) de cada token.
 
-| Método | Endpoint | Descrição | Auth |
-|---|---|---|---|
-| `GET` | `/me` | Dados do usuário autenticado | ✅ Bearer Token |
+> ⚠️ A `SECRET_KEY` do `.env.example` é pública (está no repositório). **Gere uma nova** antes de qualquer uso real; com a chave de exemplo, qualquer pessoa consegue assinar tokens válidos.
 
-### Exemplos com cURL
-
-**Registrar usuário:**
-```bash
-curl -X POST https://authservice-mbul.onrender.com/register \
-  -H "Content-Type: application/json" \
-  -d '{"email": "usuario@email.com", "password": "Senha123"}'
-```
-
-**Obter token:**
-```bash
-curl -X POST https://authservice-mbul.onrender.com/token \
-  -d "username=usuario@email.com&password=Senha123"
-```
-
-**Acessar rota protegida:**
-```bash
-curl https://authservice-mbul.onrender.com/me \
-  -H "Authorization: Bearer SEU_TOKEN_AQUI"
-```
-
----
-
-## ⚙️ Variáveis de Ambiente
-
-Crie um arquivo `.env` na raiz do projeto:
-
-| Variável | Descrição | Padrão | Obrigatório |
-|---|---|---|---|
-| `SECRET_KEY` | Chave secreta para assinar tokens JWT | — | ✅ Sim |
-| `ALGORITHM` | Algoritmo de assinatura JWT | `HS256` | Não |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Expiração do token em minutos | `60` | Não |
-
-**Exemplo `.env`:**
-```env
-SECRET_KEY=sua-chave-secreta-muito-longa-e-aleatoria-aqui
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-```
-
-Gere uma `SECRET_KEY` segura:
 ```bash
 python -c "import secrets; print(secrets.token_hex(32))"
 ```
-
-> ⚠️ Nunca commite o arquivo `.env` com valores reais. Certifique-se que ele está no `.gitignore`.
 
 ---
 
 ## 🚀 Como rodar
 
-### Com Docker *(recomendado)*
+### Com Docker (recomendado)
 
-**1. Clone o repositório:**
+Requisitos: Docker 24+ e Docker Compose v2.
+
 ```bash
 git clone https://github.com/https-shini/AuthService.git
 cd AuthService
-```
-
-**2. Configure o ambiente:**
-```bash
-cp .env.example .env
-# Edite o .env com sua SECRET_KEY
-```
-
-**3. Suba o container:**
-```bash
+cp .env.example .env        # edite a SECRET_KEY
 docker compose up --build -d
 ```
 
-**4. Acesse:**
-```
-Frontend:  http://localhost:8000
-API Docs:  http://localhost:8000/docs
-```
+| Ação | Comando |
+|---|---|
+| Ver logs | `docker logs auth-service-v2 -f` |
+| Estado e healthcheck | `docker ps` |
+| Parar | `docker compose down` |
 
-**Parar o serviço:**
-```bash
-docker compose down
-```
+O `docker-compose.yml` exige o arquivo `.env` (`env_file`).
 
-**Ver logs em tempo real:**
-```bash
-docker logs auth-service-v2 -f
-```
+### Sem Docker
 
----
+Requisitos: Python 3.11+.
 
-### Sem Docker *(execução local)*
-
-**1. Clone e crie o ambiente virtual:**
 ```bash
 git clone https://github.com/https-shini/AuthService.git
 cd AuthService
 python -m venv venv
-source venv/bin/activate   # Linux/Mac
-venv\Scripts\activate      # Windows
-```
-
-**2. Instale as dependências:**
-```bash
+source venv/bin/activate     # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-**3. Configure e execute:**
-```bash
-cp .env.example .env
-# Edite o .env com sua SECRET_KEY
+cp .env.example .env         # edite a SECRET_KEY
 uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+Depois de subir, por qualquer um dos caminhos:
+
+```
+Frontend:   http://localhost:8000
+Swagger:    http://localhost:8000/docs
+Health:     http://localhost:8000/health
+```
+
+---
+
+## 📡 Endpoints
+
+| Método | Rota | Entrada | Sucesso | Erros |
+|---|---|---|---|---|
+| `GET` | `/health` | — | `200` `{ "status": "ok", "message": "…" }` | — |
+| `POST` | `/register` | JSON `{ "email", "password" }` | `200` `{ "id", "email" }` | `400` e-mail já registrado · `422` validação |
+| `POST` | `/token` | form `username` (e-mail), `password` | `200` `{ "access_token", "token_type": "bearer" }` | `401` credenciais incorretas · `422` campo ausente |
+| `GET` | `/me` | header `Authorization: Bearer <token>` | `200` `{ "id", "email" }` | `401` token ausente, inválido ou expirado |
+
+Os erros seguem o formato padrão do FastAPI: `{ "detail": "mensagem" }` ou, em `422`, `{ "detail": [ { "loc", "msg", "type" } ] }`. O cadastro responde **200** (e não 201).
+
+### Exemplos com cURL
+
+```bash
+curl -X POST http://localhost:8000/register \
+  -H "Content-Type: application/json" \
+  -d '{"email": "usuario@email.com", "password": "Senha123"}'
+```
+
+```bash
+curl -X POST http://localhost:8000/token \
+  -d "username=usuario@email.com&password=Senha123"
+```
+
+```bash
+curl http://localhost:8000/me \
+  -H "Authorization: Bearer SEU_TOKEN_AQUI"
+```
+
+---
+
+## 🔑 Autenticação
+
+1. `POST /register` valida o e-mail (`EmailStr`) e a senha, gera o hash com **bcrypt** e guarda o usuário em memória.
+2. `POST /token` confere e-mail e hash e devolve um JWT com `sub` (o e-mail) e `exp` (agora + `ACCESS_TOKEN_EXPIRE_MINUTES`), assinado com `SECRET_KEY`.
+3. O frontend guarda **somente o token** no `sessionStorage` da aba (some ao fechá-la), junto com o horário do login. A senha nunca é armazenada nem exibida.
+4. Rotas protegidas recebem `Authorization: Bearer <token>`. `get_current_user` decodifica o token e busca o usuário pelo e-mail; qualquer falha gera `401`.
+5. Não há refresh token nem revogação: o token vale até expirar. "Encerrar sessão" apaga os dados locais.
+
+Autorização: existe apenas a distinção entre autenticado e não autenticado. Não há papéis ou permissões.
+
+---
+
+## 🛡️ Segurança no frontend
+
+- Nenhuma senha em `sessionStorage`, `localStorage`, cookies ou logs; o campo é esvaziado após o login. Chaves antigas (`auth_pass`, `auth_email`) gravadas por versões anteriores são apagadas automaticamente.
+- Nenhum dado externo entra via `innerHTML`: o DOM é montado com `createElement`/`textContent`.
+- **Content Security Policy** via `<meta>`: scripts só da própria origem (nenhum script inline), estilos da origem, Fontshare e Google Fonts, conexões só com a própria API.
+- Token oculto por padrão no painel, nunca em URLs.
+
+---
+
+## ⚠️ Limitações conhecidas
+
+- **Persistência em memória**: todos os usuários somem quando o processo reinicia.
+- **Sem rate limiting** em `/token` (exposto a força bruta).
+- **E-mail sensível a maiúsculas** na parte local: `Usuario@x.com` e `usuario@x.com` são contas diferentes, e entrar com a variação errada retorna 401.
+- **Token no `sessionStorage`**: acessível a JavaScript da página. A CSP reduz o risco de XSS, mas um cookie `HttpOnly` exigiria mudança no backend.
+- **Sem refresh token, revogação ou logout no servidor.**
+- `requirements.txt` sem versões fixadas (exceto `bcrypt`).
+
+---
+
+## 🗺️ Pendências / Roadmap
+
+Itens planejados — **nenhum deles está implementado**. Todos exigem mudanças no backend.
+
+| Prioridade | Item | Descrição |
+|---|---|---|
+| Alta | Rate limiting | Limitar tentativas em `/token` (por exemplo, 5 por IP/minuto com bloqueio progressivo). |
+| Alta | Refresh token | Renovar o acesso sem pedir credenciais ao expirar (`POST /refresh`). |
+| Alta | Campo nome | Adicionar `name` ao modelo `User` e ao schema `UserCreate`. O frontend não coleta nome até lá. |
+| Média | Banco persistente | Migrar do armazenamento em memória para PostgreSQL + SQLAlchemy + Alembic (ou SQLite como passo intermediário). |
+| Média | MFA / TOTP | Segundo fator com aplicativo autenticador (`POST /mfa/enable`, `POST /mfa/verify`). |
+| Média | RBAC | Papéis (admin, user, guest) como claim no JWT e autorização por rota. |
+| Média | Normalizar e-mail | Comparar e-mails sem diferenciar maiúsculas no cadastro e no login. |
+| Média | Cookie `HttpOnly` | Entregar o token em cookie `HttpOnly; Secure; SameSite`, tirando-o do alcance de JavaScript. |
+| Média | Headers de segurança | CSP, `X-Content-Type-Options`, `Referrer-Policy` etc. enviados pelo servidor (hoje a CSP vem de `<meta>`). |
+| Baixa | `201 Created` | Fazer `/register` responder 201, como é convenção para criação. |
+| Baixa | Recuperação de senha | Reset por e-mail com token temporário de uso único (requer SMTP). |
+| Baixa | Logs estruturados | Logs em JSON com níveis e correlation IDs. |
+| Baixa | Segredos fora do `.env` | `SECRET_KEY` em gerenciador de segredos (Vault, AWS SSM, Docker Secrets) em produção. |
 
 ---
 
 ## 🤝 Como contribuir
 
-Consulte o arquivo [CONTRIBUTING.md](./CONTRIBUTING.md) para o passo a passo completo.
+O passo a passo está em [read-model/CONTRIBUTING.md](./read-model/CONTRIBUTING.md) (PT-BR e EN-US). Commits seguem Conventional Commits:
 
 ```bash
 git checkout -b minha-feature
 git commit -m "feat: minha nova feature"
 git push origin minha-feature
-# Abra um Pull Request 🚀
 ```
 
 ---
 
 ## 📚 Documentação adicional
 
-| Arquivo | Descrição |
+| Arquivo | Conteúdo |
 |---|---|
-| [CONTRIBUTING.md](./CONTRIBUTING.md) | Guia completo de contribuição (PT-BR e EN-US) |
-| [MODEL.md](./MODEL.md) | Documentação arquitetural aprofundada |
+| [read-model/MODEL.md](./read-model/MODEL.md) | Entidades, regras de negócio, fluxos e decisões arquiteturais |
+| [read-model/STRUCTURE.md](./read-model/STRUCTURE.md) | Estrutura de diretórios, responsabilidades e setup |
+| [read-model/CONTRIBUTING.md](./read-model/CONTRIBUTING.md) | Guia de contribuição |
 
 ---
 
 ## 📄 Licença
 
-Este projeto está sob a licença **MIT**. Veja o arquivo [LICENSE](./LICENSE) para mais detalhes.
+Distribuído sob a licença **MIT**. Veja [read-model/LICENSE](./read-model/LICENSE).
 
 ---
 
 <div align="center">
 
-Feito com 💚 — autenticação simples, segura e com estilo terminal.
-
-⭐ Se gostou, deixe uma estrela no repositório!
+Um projeto [`<gcruz.dev/>`](https://gcruz.dev.br) — autenticação simples, segura e com a mesma identidade do portfólio.
 
 </div>
 

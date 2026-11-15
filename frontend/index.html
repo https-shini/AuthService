@@ -1,464 +1,260 @@
 <!doctype html>
 <html lang="pt-BR" data-theme="dark">
     <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta
+            http-equiv="Content-Security-Policy"
+            content="default-src 'self'; script-src 'self'; style-src 'self' https://api.fontshare.com https://fonts.googleapis.com; font-src 'self' https://cdn.fontshare.com https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
+        />
+        <meta name="referrer" content="strict-origin-when-cross-origin" />
+        <title>Acesso · AuthService</title>
         <meta
             name="description"
-            content="AuthService — Plataforma de autenticação com JWT"
+            content="Entre ou crie sua conta no AuthService, serviço de autenticação com JWT e bcrypt."
         />
+        <meta name="theme-color" content="#070d19" />
+        <link rel="icon" href="public/favicon.svg" type="image/svg+xml" />
 
-        <!-- Favicon -->
-        <link rel="icon" href="./public/icon.svg" type="image/svg+xml" />
-        <link rel="shortcut icon" href="icon.svg" />
+        <script src="js/theme-init.js"></script>
 
-        <!-- Fontes -->
+        <link rel="preconnect" href="https://api.fontshare.com" />
+        <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link
-            href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;600;700;800&display=swap"
-            rel="stylesheet"
-        />
+        <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@500,700&amp;display=swap" />
+        <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600&amp;display=swap" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" />
 
-        <!-- Ícones -->
-        <link
-            rel="stylesheet"
-            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"
-        />
-
-        <!-- CSS: Design System → Componentes → Página → Responsivo -->
         <link rel="stylesheet" href="css/tokens.css" />
+        <link rel="stylesheet" href="css/base.css" />
+        <link rel="stylesheet" href="css/layout.css" />
         <link rel="stylesheet" href="css/components.css" />
         <link rel="stylesheet" href="css/auth.css" />
-        <link rel="stylesheet" href="css/responsive.css" />
 
-        <title>AuthService</title>
-
-        <!-- Aplica tema antes do render para evitar FOUC -->
-        <script>
-            (function () {
-                var t = localStorage.getItem("auth_theme") || "dark";
-                document.documentElement.setAttribute("data-theme", t);
-            })();
-        </script>
+        <script type="module" src="js/pages/auth.js"></script>
     </head>
     <body>
-        <!-- ════════════════════ HEADER ════════════════════ -->
-        <header class="header" role="banner">
-            <nav class="nav" role="navigation" aria-label="Navegação principal">
-                <a
-                    href="index.html"
-                    class="nav-logo"
-                    aria-label="AuthService — Início"
-                >
-                    <img
-                        src="./public/icon.svg"
-                        alt=""
-                        class="nav-avatar"
-                        aria-hidden="true"
-                    />
-                    <span class="nav-brand">AuthService</span>
+        <a class="skip-link" href="#main">Pular para o conteúdo</a>
+        <div class="ambient" aria-hidden="true"><div class="ambient__grid"></div></div>
+
+        <header class="site-header">
+            <div class="site-header__inner">
+                <a class="logo site-header__logo" href="index.html" aria-label="AuthService, página de acesso">
+                    <span class="logo__bracket" aria-hidden="true">&lt;</span><span class="logo__name" aria-hidden="true">auth</span><span class="logo__ext" aria-hidden="true">.service</span><span class="logo__bracket" aria-hidden="true">/&gt;</span>
                 </a>
-
-                <ul class="nav-links" id="nav-links" role="list">
-                    <li>
-                        <a
-                            href="index.html"
-                            class="nav-link active"
-                            aria-current="page"
-                            ><i
-                                class="fa-solid fa-terminal"
-                                aria-hidden="true"
-                            ></i>
-                            Acesso</a
-                        >
-                    </li>
-                    <li>
-                        <a href="home.html" class="nav-link"
-                            ><i
-                                class="fa-solid fa-house"
-                                aria-hidden="true"
-                            ></i>
-                            Home</a
-                        >
-                    </li>
-                    <li>
-                        <a href="status.html" class="nav-link"
-                            ><i
-                                class="fa-solid fa-server"
-                                aria-hidden="true"
-                            ></i>
-                            Status</a
-                        >
-                    </li>
-                </ul>
-
-                <button
-                    class="theme-toggle"
-                    id="theme-toggle-btn"
-                    onclick="toggleTheme()"
-                    aria-label="Alternar tema"
-                >
-                    <i class="fa-regular fa-sun" aria-hidden="true"></i>
-                </button>
-
-                <button
-                    class="burger"
-                    id="burger"
-                    aria-expanded="false"
-                    aria-controls="mobile-menu"
-                    aria-label="Abrir menu"
-                >
-                    <span aria-hidden="true"></span>
-                    <span aria-hidden="true"></span>
-                    <span aria-hidden="true"></span>
-                </button>
-            </nav>
-
-            <div
-                class="mobile-menu"
-                id="mobile-menu"
-                role="navigation"
-                aria-label="Menu mobile"
-            >
-                <a href="index.html" class="mob-link active" aria-current="page"
-                    ><i class="fa-solid fa-terminal" aria-hidden="true"></i>
-                    Acesso</a
-                >
-                <a href="home.html" class="mob-link"
-                    ><i class="fa-solid fa-house" aria-hidden="true"></i>
-                    Home</a
-                >
-                <a href="status.html" class="mob-link"
-                    ><i class="fa-solid fa-server" aria-hidden="true"></i>
-                    Status</a
-                >
+                <nav class="site-nav" aria-label="Principal">
+                    <ul class="site-nav__list">
+                        <li><a class="site-nav__link" href="index.html" aria-current="page">Acesso</a></li>
+                        <li><a class="site-nav__link" href="home.html">Painel</a></li>
+                        <li><a class="site-nav__link" href="status.html">Status</a></li>
+                    </ul>
+                </nav>
+                <div class="site-header__actions">
+                    <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Alternar tema">
+                        <svg class="icon icon--sun" aria-hidden="true" focusable="false"><use href="public/icons.svg#sun" /></svg>
+                        <svg class="icon icon--moon" aria-hidden="true" focusable="false"><use href="public/icons.svg#moon" /></svg>
+                    </button>
+                    <button class="icon-btn nav-toggle" type="button" data-nav-toggle aria-controls="mobile-nav" aria-expanded="false" aria-label="Abrir menu">
+                        <svg class="icon icon--menu" aria-hidden="true" focusable="false"><use href="public/icons.svg#menu" /></svg>
+                        <svg class="icon icon--close" aria-hidden="true" focusable="false"><use href="public/icons.svg#x" /></svg>
+                    </button>
+                </div>
             </div>
+            <nav class="mobile-nav" id="mobile-nav" aria-label="Principal (móvel)" hidden>
+                <ul class="mobile-nav__list">
+                    <li><a class="mobile-nav__link" href="index.html" aria-current="page">Acesso</a></li>
+                    <li><a class="mobile-nav__link" href="home.html">Painel</a></li>
+                    <li><a class="mobile-nav__link" href="status.html">Status</a></li>
+                </ul>
+            </nav>
         </header>
 
-        <!-- ════════════════════ MAIN ════════════════════ -->
-        <main class="main-auth" role="main">
-            <div class="auth-container" id="auth-container">
-                <!-- ── Formulário de Cadastro ── -->
-                <div
-                    class="form-container sign-up"
-                    role="region"
-                    aria-label="Formulário de cadastro"
-                >
-                    <form class="auth-form" onsubmit="return false;" novalidate>
-                        <h1>Criar conta</h1>
-                        <p class="form-sub">
-                            // preencha os dados para iniciar sessão
-                        </p>
+        <main class="site-main auth-layout" id="main" tabindex="-1">
+            <section class="auth-intro" aria-labelledby="intro-title">
+                <span class="eyebrow">Serviço de autenticação</span>
+                <h1 class="auth-intro__title" id="intro-title">
+                    Acesso seguro, <span class="auth-intro__accent">sem complicação.</span>
+                </h1>
+                <p class="page-lead">
+                    Crie uma conta com e-mail e senha, entre e receba um token JWT para acessar as
+                    rotas protegidas da API.
+                </p>
+            </section>
 
-                        <div
-                            class="social-icons"
-                            aria-label="Entrar com redes sociais"
-                        >
-                            <a href="#" class="social-icon" aria-label="Google"
-                                ><i
-                                    class="fa-brands fa-google-plus-g"
-                                    aria-hidden="true"
-                                ></i
-                            ></a>
-                            <a href="#" class="social-icon" aria-label="GitHub"
-                                ><i
-                                    class="fa-brands fa-github"
-                                    aria-hidden="true"
-                                ></i
-                            ></a>
-                            <a href="#" class="social-icon" aria-label="GitLab"
-                                ><i
-                                    class="fa-brands fa-gitlab"
-                                    aria-hidden="true"
-                                ></i
-                            ></a>
-                            <a
-                                href="#"
-                                class="social-icon"
-                                aria-label="LinkedIn"
-                                ><i
-                                    class="fa-brands fa-linkedin-in"
-                                    aria-hidden="true"
-                                ></i
-                            ></a>
-                        </div>
-
-                        <div class="or-divider" aria-hidden="true">
-                            ou via credenciais
-                        </div>
-
-                        <div class="input-box">
-                            <i
-                                class="fa-regular fa-user ib-icon"
-                                aria-hidden="true"
-                            ></i>
-                            <input
-                                type="text"
-                                id="reg-name"
-                                placeholder="nome completo"
-                                autocomplete="name"
-                                aria-label="Nome completo"
-                            />
-                        </div>
-
-                        <div class="input-box">
-                            <i
-                                class="fa-regular fa-envelope ib-icon"
-                                aria-hidden="true"
-                            ></i>
-                            <input
-                                type="email"
-                                id="reg-email"
-                                placeholder="e-mail"
-                                autocomplete="email"
-                                aria-label="E-mail"
-                            />
-                        </div>
-
-                        <div class="input-box">
-                            <i
-                                class="fa-solid fa-lock ib-icon"
-                                aria-hidden="true"
-                            ></i>
-                            <input
-                                type="password"
-                                id="reg-pass"
-                                placeholder="senha (mín. 8 chars)"
-                                autocomplete="new-password"
-                                aria-label="Senha"
-                            />
-                            <button
-                                type="button"
-                                class="eye-btn"
-                                onclick="toggleEye('reg-pass', this)"
-                                aria-label="Mostrar/ocultar senha"
-                            >
-                                <i
-                                    class="fa-regular fa-eye"
-                                    aria-hidden="true"
-                                ></i>
-                            </button>
-                        </div>
-
-                        <!-- Força da senha -->
-                        <div
-                            class="strength-wrap"
-                            aria-live="polite"
-                            aria-label="Força da senha"
-                        >
-                            <div
-                                class="strength-bar"
-                                role="progressbar"
-                                aria-valuemin="0"
-                                aria-valuemax="100"
-                            >
-                                <div
-                                    class="strength-fill"
-                                    id="strength-fill"
-                                ></div>
-                            </div>
-                            <span
-                                class="strength-label"
-                                id="strength-label"
-                            ></span>
-                        </div>
-
-                        <div
-                            class="alert"
-                            id="reg-alert"
-                            role="alert"
-                            aria-live="polite"
-                        ></div>
-
-                        <button
-                            type="button"
-                            class="btn-main"
-                            id="btn-reg"
-                            onclick="registerUser()"
-                        >
-                            Cadastrar
-                        </button>
-
-                        <p class="mob-switch">
-                            Já tem conta?
-                            <a href="#" class="text-link" id="btnL-mob"
-                                >Entrar</a
-                            >
-                        </p>
-                    </form>
-                </div>
-
-                <!-- ── Formulário de Login ── -->
-                <div
-                    class="form-container sign-in"
-                    role="region"
-                    aria-label="Formulário de login"
-                >
-                    <form class="auth-form" onsubmit="return false;" novalidate>
-                        <h1>Autenticar</h1>
-                        <p class="form-sub">// insira suas credenciais</p>
-
-                        <div
-                            class="social-icons"
-                            aria-label="Entrar com redes sociais"
-                        >
-                            <a href="#" class="social-icon" aria-label="Google"
-                                ><i
-                                    class="fa-brands fa-google-plus-g"
-                                    aria-hidden="true"
-                                ></i
-                            ></a>
-                            <a href="#" class="social-icon" aria-label="GitHub"
-                                ><i
-                                    class="fa-brands fa-github"
-                                    aria-hidden="true"
-                                ></i
-                            ></a>
-                            <a href="#" class="social-icon" aria-label="GitLab"
-                                ><i
-                                    class="fa-brands fa-gitlab"
-                                    aria-hidden="true"
-                                ></i
-                            ></a>
-                            <a
-                                href="#"
-                                class="social-icon"
-                                aria-label="LinkedIn"
-                                ><i
-                                    class="fa-brands fa-linkedin-in"
-                                    aria-hidden="true"
-                                ></i
-                            ></a>
-                        </div>
-
-                        <div class="or-divider" aria-hidden="true">
-                            ou via credenciais
-                        </div>
-
-                        <div class="input-box">
-                            <i
-                                class="fa-regular fa-envelope ib-icon"
-                                aria-hidden="true"
-                            ></i>
-                            <input
-                                type="email"
-                                id="log-email"
-                                placeholder="e-mail"
-                                autocomplete="email"
-                                aria-label="E-mail"
-                            />
-                        </div>
-
-                        <div class="input-box">
-                            <i
-                                class="fa-solid fa-lock ib-icon"
-                                aria-hidden="true"
-                            ></i>
-                            <input
-                                type="password"
-                                id="log-pass"
-                                placeholder="senha"
-                                autocomplete="current-password"
-                                aria-label="Senha"
-                            />
-                            <button
-                                type="button"
-                                class="eye-btn"
-                                onclick="toggleEye('log-pass', this)"
-                                aria-label="Mostrar/ocultar senha"
-                            >
-                                <i
-                                    class="fa-regular fa-eye"
-                                    aria-hidden="true"
-                                ></i>
-                            </button>
-                        </div>
-
-                        <a href="#" class="forgot-link">esqueci a senha</a>
-
-                        <div
-                            class="alert"
-                            id="log-alert"
-                            role="alert"
-                            aria-live="polite"
-                        ></div>
-
-                        <button
-                            type="button"
-                            class="btn-main"
-                            id="btn-log"
-                            onclick="loginUser()"
-                        >
+            <section class="card auth-card" aria-label="Entrar ou criar conta">
+                <div class="auth-card__body">
+                    <div class="tabs__list" role="tablist" aria-label="Escolha uma opção">
+                        <button class="tabs__tab" type="button" role="tab" id="tab-login" aria-controls="panel-login" aria-selected="true">
+                            <svg class="icon" aria-hidden="true" focusable="false"><use href="public/icons.svg#log-in" /></svg>
                             Entrar
                         </button>
+                        <button class="tabs__tab" type="button" role="tab" id="tab-register" aria-controls="panel-register" aria-selected="false" tabindex="-1">
+                            <svg class="icon" aria-hidden="true" focusable="false"><use href="public/icons.svg#user-plus" /></svg>
+                            Criar conta
+                        </button>
+                    </div>
 
-                        <p class="mob-switch">
-                            Sem conta?
-                            <a href="#" class="text-link" id="btnR-mob"
-                                >Cadastrar</a
-                            >
+                    <div class="alert-region" id="session-notice" role="status" aria-live="polite"></div>
+
+                    <!-- Entrar ------------------------------------------------------ -->
+                    <div class="auth-panel" role="tabpanel" id="panel-login" aria-labelledby="tab-login">
+                        <div class="auth-panel__head">
+                            <h2 class="auth-panel__title">Entre na sua conta</h2>
+                            <p class="auth-panel__text">Use o e-mail e a senha cadastrados.</p>
+                        </div>
+                        <form class="auth-form" id="login-form" novalidate>
+                            <div class="field">
+                                <label class="field__label" for="login-email">E-mail</label>
+                                <div class="field__control">
+                                    <svg class="icon field__icon" aria-hidden="true" focusable="false"><use href="public/icons.svg#mail" /></svg>
+                                    <input class="field__input" id="login-email" name="email" type="email" inputmode="email" autocomplete="username" spellcheck="false" autocapitalize="none" required aria-describedby="login-email-error" />
+                                </div>
+                                <p class="field__error" id="login-email-error"></p>
+                            </div>
+
+                            <div class="field">
+                                <label class="field__label" for="login-password">Senha</label>
+                                <div class="field__control">
+                                    <svg class="icon field__icon" aria-hidden="true" focusable="false"><use href="public/icons.svg#lock" /></svg>
+                                    <input class="field__input field__input--with-action" id="login-password" name="password" type="password" autocomplete="current-password" required aria-describedby="login-password-error" />
+                                    <button class="field__action" type="button" data-password-toggle="login-password" aria-controls="login-password" aria-pressed="false" aria-label="Mostrar senha">
+                                        <svg class="icon icon--eye" aria-hidden="true" focusable="false"><use href="public/icons.svg#eye" /></svg>
+                                        <svg class="icon icon--eye-off" aria-hidden="true" focusable="false"><use href="public/icons.svg#eye-off" /></svg>
+                                    </button>
+                                </div>
+                                <p class="field__error" id="login-password-error"></p>
+                            </div>
+
+                            <div class="alert-region" id="login-alert" role="status" aria-live="polite"></div>
+
+                            <button class="btn btn--primary btn--block" type="submit" id="login-submit">
+                                <svg class="icon" aria-hidden="true" focusable="false"><use href="public/icons.svg#log-in" /></svg>
+                                <span class="btn__label">Entrar</span>
+                            </button>
+                        </form>
+                        <p class="auth-switch">
+                            Ainda não tem conta?
+                            <button class="auth-switch__btn" type="button" data-show-tab="register">Criar conta</button>
                         </p>
-                    </form>
-                </div>
+                    </div>
 
-                <!-- ── Painel de Toggle (desktop) ── -->
-                <div class="toggle-container" aria-hidden="true">
-                    <div class="toggle-panel-wrap">
-                        <div class="toggle-panel toggle-left">
-                            <h2>Já tem acesso?</h2>
-                            <p>
-                                Use suas credenciais para autenticar e acessar o
-                                painel do sistema.
-                            </p>
-                            <button class="btn-toggle" id="btn-show-login">
-                                Entrar
-                            </button>
+                    <!-- Criar conta ------------------------------------------------- -->
+                    <div class="auth-panel" role="tabpanel" id="panel-register" aria-labelledby="tab-register" hidden>
+                        <div class="auth-panel__head">
+                            <h2 class="auth-panel__title">Crie sua conta</h2>
+                            <p class="auth-panel__text">Só precisamos de um e-mail e de uma senha.</p>
                         </div>
+                        <form class="auth-form" id="register-form" novalidate>
+                            <div class="field">
+                                <label class="field__label" for="register-email">E-mail</label>
+                                <div class="field__control">
+                                    <svg class="icon field__icon" aria-hidden="true" focusable="false"><use href="public/icons.svg#mail" /></svg>
+                                    <input class="field__input" id="register-email" name="email" type="email" inputmode="email" autocomplete="email" spellcheck="false" autocapitalize="none" required aria-describedby="register-email-error" />
+                                </div>
+                                <p class="field__error" id="register-email-error"></p>
+                            </div>
 
-                        <div class="toggle-panel toggle-right">
-                            <h2>Novo no sistema?</h2>
-                            <p>
-                                Registre suas credenciais para obter acesso à
-                                API de autenticação.
-                            </p>
-                            <button class="btn-toggle" id="btn-show-register">
-                                Cadastrar
+                            <div class="field">
+                                <label class="field__label" for="register-password">Senha</label>
+                                <div class="field__control">
+                                    <svg class="icon field__icon" aria-hidden="true" focusable="false"><use href="public/icons.svg#lock" /></svg>
+                                    <input class="field__input field__input--with-action" id="register-password" name="password" type="password" autocomplete="new-password" minlength="8" required aria-describedby="password-rules register-password-error" />
+                                    <button class="field__action" type="button" data-password-toggle="register-password" aria-controls="register-password" aria-pressed="false" aria-label="Mostrar senha">
+                                        <svg class="icon icon--eye" aria-hidden="true" focusable="false"><use href="public/icons.svg#eye" /></svg>
+                                        <svg class="icon icon--eye-off" aria-hidden="true" focusable="false"><use href="public/icons.svg#eye-off" /></svg>
+                                    </button>
+                                </div>
+                                <p class="field__error" id="register-password-error"></p>
+
+                                <div class="password-help">
+                                    <p class="password-help__title" id="password-rules-title">A senha precisa ter:</p>
+                                    <ul class="checklist" id="password-rules" aria-labelledby="password-rules-title">
+                                        <li class="checklist__item" data-rule="length" data-met="false">
+                                            <svg class="icon icon--check" aria-hidden="true" focusable="false"><use href="public/icons.svg#check" /></svg>
+                                            <svg class="icon icon--pending" aria-hidden="true" focusable="false"><use href="public/icons.svg#circle" /></svg>
+                                            <span>No mínimo 8 caracteres</span>
+                                            <span class="sr-only" data-rule-state>(pendente)</span>
+                                        </li>
+                                        <li class="checklist__item" data-rule="letter" data-met="false">
+                                            <svg class="icon icon--check" aria-hidden="true" focusable="false"><use href="public/icons.svg#check" /></svg>
+                                            <svg class="icon icon--pending" aria-hidden="true" focusable="false"><use href="public/icons.svg#circle" /></svg>
+                                            <span>Pelo menos uma letra</span>
+                                            <span class="sr-only" data-rule-state>(pendente)</span>
+                                        </li>
+                                        <li class="checklist__item" data-rule="digit" data-met="false">
+                                            <svg class="icon icon--check" aria-hidden="true" focusable="false"><use href="public/icons.svg#check" /></svg>
+                                            <svg class="icon icon--pending" aria-hidden="true" focusable="false"><use href="public/icons.svg#circle" /></svg>
+                                            <span>Pelo menos um número</span>
+                                            <span class="sr-only" data-rule-state>(pendente)</span>
+                                        </li>
+                                    </ul>
+
+                                    <div class="meter" id="password-meter" data-level="0">
+                                        <div class="meter__track" aria-hidden="true">
+                                            <span class="meter__segment"></span><span class="meter__segment"></span><span class="meter__segment"></span><span class="meter__segment"></span><span class="meter__segment"></span>
+                                        </div>
+                                        <p class="meter__label">
+                                            Força estimada: <strong id="password-meter-label">—</strong>
+                                            <span class="meter__hint">(indicativa; maiúsculas, símbolos e comprimento a aumentam, mas não são exigidos)</span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="alert-region" id="register-alert" role="status" aria-live="polite"></div>
+
+                            <button class="btn btn--primary btn--block" type="submit" id="register-submit">
+                                <svg class="icon" aria-hidden="true" focusable="false"><use href="public/icons.svg#user-plus" /></svg>
+                                <span class="btn__label">Criar conta</span>
                             </button>
-                        </div>
+                        </form>
+                        <p class="auth-switch">
+                            Já tem conta?
+                            <button class="auth-switch__btn" type="button" data-show-tab="login">Entrar</button>
+                        </p>
                     </div>
                 </div>
-            </div>
-            <!-- /auth-container -->
+            </section>
+
+            <section class="auth-aside" aria-label="Como funciona">
+                <ul class="auth-facts">
+                    <li class="auth-facts__item">
+                        <span class="auth-facts__icon"><svg class="icon" aria-hidden="true" focusable="false"><use href="public/icons.svg#key" /></svg></span>
+                        <span><strong>Token JWT</strong> assinado com HS256 e prazo de expiração</span>
+                    </li>
+                    <li class="auth-facts__item">
+                        <span class="auth-facts__icon"><svg class="icon" aria-hidden="true" focusable="false"><use href="public/icons.svg#lock" /></svg></span>
+                        <span><strong>Senhas com bcrypt</strong>, nunca armazenadas em texto</span>
+                    </li>
+                    <li class="auth-facts__item">
+                        <span class="auth-facts__icon"><svg class="icon" aria-hidden="true" focusable="false"><use href="public/icons.svg#shield-check" /></svg></span>
+                        <span><strong>OAuth2 Password Flow</strong> com rota protegida por Bearer</span>
+                    </li>
+                </ul>
+                <a class="auth-aside__status" href="status.html">
+                    <span class="status-pill">
+                        <span class="status-dot" id="api-dot" data-state="checking"></span>
+                        <span id="api-label">Verificando a API…</span>
+                    </span>
+                </a>
+            </section>
         </main>
 
-        <!-- ════════════════════ FOOTER ════════════════════ -->
-        <footer class="footer" role="contentinfo">
-            <p class="footer-copyright">
-                <span data-i18n="footer.copyright">&copy;</span>
-                <span id="current-year"></span>
-                <span data-i18n="footer.author"
-                    >Guilherme Cruz. Todos os direitos reservados.</span
-                >
-            </p>
-            <nav class="footer-links" aria-label="Links do rodapé">
-                <a href="status.html">Status da API</a>
-                <span aria-hidden="true">·</span>
-                <a href="#">Documentação</a>
-            </nav>
+        <footer class="site-footer">
+            <div class="site-footer__inner">
+                <p class="site-footer__credit">
+                    AuthService · um projeto
+                    <a class="logo logo--sm" href="https://gcruz.dev.br" rel="noopener" aria-label="gcruz.dev, portfólio do autor">
+                        <span class="logo__bracket" aria-hidden="true">&lt;</span><span class="logo__name" aria-hidden="true">gcruz</span><span class="logo__ext" aria-hidden="true">.dev</span><span class="logo__bracket" aria-hidden="true">/&gt;</span>
+                    </a>
+                </p>
+                <ul class="site-footer__links">
+                    <li><a href="status.html"><svg class="icon" aria-hidden="true" focusable="false"><use href="public/icons.svg#activity" /></svg>Status</a></li>
+                    <li><a href="/docs"><svg class="icon" aria-hidden="true" focusable="false"><use href="public/icons.svg#book-open" /></svg>Docs da API</a></li>
+                    <li><a href="https://github.com/https-shini/AuthService" rel="noopener"><svg class="icon" aria-hidden="true" focusable="false"><use href="public/icons.svg#github" /></svg>Código</a></li>
+                </ul>
+            </div>
         </footer>
-
-        <!-- Script ano atual -->
-        <script>
-            document.getElementById("current-year").textContent =
-                new Date().getFullYear();
-        </script>
-
-        <!-- ════════════════════ SCRIPTS ════════════════════ -->
-        <!-- Ordem: theme → utils → nav → página -->
-        <script src="js/theme.js"></script>
-        <script src="js/utils.js"></script>
-        <script src="js/nav.js"></script>
-        <script src="js/auth.js"></script>
     </body>
 </html>

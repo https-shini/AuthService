@@ -3,227 +3,194 @@
 <h1 align="center">🏗️ Estrutura e Setup do Projeto</h1>
 
 <p align="center">
-  <a href="#requisitos">Requisitos</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
-  <a href="#setup-do-ambiente">Setup do Ambiente</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
-  <a href="#como-rodar">Como Rodar</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
-  <a href="#decisões-arquiteturais">Decisões Arquiteturais</a>&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
-  <a href="./README.md">Voltar</a>
+  <a href="#estrutura-de-diretórios">Estrutura</a>&nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="#backend">Backend</a>&nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="#frontend">Frontend</a>&nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="#setup">Setup</a>&nbsp;&nbsp;|&nbsp;&nbsp;
+  <a href="../README.md">Voltar ao README</a>
 </p>
 
 ---
 
-## Requisitos
+## Estrutura de diretórios
 
-Para rodar o projeto com Docker *(recomendado)*:
+```
+AuthService/
+├── backend/
+│   ├── __init__.py
+│   ├── main.py                       → app FastAPI, router, mount do frontend em "/"
+│   ├── api/
+│   │   └── auth_routes.py            → /register, /token, /health, /me (+ sanitize_log)
+│   ├── core/
+│   │   ├── config.py                 → Settings (pydantic-settings, lê .env)
+│   │   ├── logger.py                 → logging para stdout
+│   │   └── security.py               → bcrypt (hash/verificação) e JWT (criar/decodificar)
+│   ├── dependencies/
+│   │   └── dependencies.py           → repositório singleton e get_current_user
+│   ├── models/
+│   │   └── user.py                   → entidade User (id, email, hashed_password)
+│   ├── repositories/
+│   │   └── user_repository.py        → armazenamento em memória (Dict[int, User])
+│   ├── schemas/
+│   │   └── user_schemas.py           → UserCreate, UserOut, Token
+│   └── services/
+│       └── auth_service.py           → cadastro e autenticação
+│
+├── frontend/
+│   ├── index.html                    → acesso: entrar / criar conta
+│   ├── home.html                     → painel da conta autenticada
+│   ├── status.html                   → status da API (verificações reais)
+│   ├── css/
+│   │   ├── tokens.css                → design system: cores, tipografia, espaço, raio, movimento
+│   │   ├── base.css                  → reset, tipografia base, foco, utilidades de acessibilidade
+│   │   ├── layout.css                → fundo (aurora + malha), header, navegação, rodapé
+│   │   ├── components.css            → botão, card, badge, campo, alerta, status, abas, checklist…
+│   │   ├── auth.css                  → página de acesso
+│   │   ├── dashboard.css             → painel
+│   │   └── status.css                → status
+│   ├── js/
+│   │   ├── theme-init.js             → aplica o tema no <head>, antes da pintura
+│   │   ├── core/
+│   │   │   ├── api.js                → cliente HTTP e contratos da API
+│   │   │   ├── session.js            → token no sessionStorage, leitura do JWT, limpeza
+│   │   │   ├── dom.js                → criação segura de elementos, alertas, formatação
+│   │   │   ├── theme.js              → alternância e persistência do tema
+│   │   │   └── nav.js                → menu móvel acessível
+│   │   └── pages/
+│   │       ├── auth.js               → index.html
+│   │       ├── dashboard.js          → home.html
+│   │       └── status.js             → status.html
+│   └── public/
+│       ├── favicon.svg               → ícone da aba
+│       └── icons.svg                 → sprite de ícones (traço no estilo do portfólio)
+│
+├── read-model/
+│   ├── MODEL.md                      → entidades, regras, fluxos e decisões
+│   ├── STRUCTURE.md                  → este arquivo
+│   ├── CONTRIBUTING.md               → guia de contribuição (PT-BR e EN-US)
+│   ├── LICENSE                       → licença MIT
+│   └── img/                          → capturas usadas no README
+│
+├── .github/workflows/codeql.yml      → análise CodeQL (push/PR em main e semanal)
+├── .env.example                      → modelo de configuração
+├── .gitignore                        → ignora .env, __pycache__, venv etc.
+├── Dockerfile                        → imagem python:3.11-slim com healthcheck
+├── docker-compose.yml                → serviço auth-service (container auth-service-v2)
+├── requirements.txt                  → dependências Python
+└── README.md                         → documentação principal
+```
 
-- [Docker](https://www.docker.com/) — versão 24+
-- [Docker Compose](https://docs.docker.com/compose/) — versão 2+
-
-Para rodar localmente sem Docker:
-
-- [Python 3.11+](https://www.python.org/downloads/)
-- pip — gerenciador de pacotes Python
-- Navegador web moderno com suporte a ES6+
+O arquivo `.env` (não versionado) é criado a partir do `.env.example`.
 
 ---
 
-## Setup do Ambiente
+## Backend
 
-### Com Docker *(recomendado)*
+As camadas dependem apenas da camada de baixo:
 
-**1. Clone o repositório:**
-```bash
-git clone https://github.com/seu-usuario/auth-service.git
-cd auth-service
+```
+api/auth_routes.py ──► services/auth_service.py ──► repositories/user_repository.py ──► models/user.py
+        │                         │
+        ├── schemas/user_schemas.py (validação de entrada e saída)
+        ├── dependencies/dependencies.py (repositório singleton, get_current_user)
+        └── core/security.py ◄── core/config.py (.env)
 ```
 
-**2. Crie o arquivo de variáveis de ambiente:**
-```bash
-cp .env.example .env
-```
+`main.py` registra o router **antes** de montar `frontend/` em `/`, por isso as rotas da API (e `/docs`, `/redoc`, `/openapi.json`) têm prioridade sobre os arquivos estáticos. O diretório do frontend é procurado em `/code/frontend` (WORKDIR do Docker) e, se não existir, em `../frontend` relativo a `backend/`, o que cobre a execução local.
 
-**3. Edite o `.env` com sua chave secreta:**
-```env
-SECRET_KEY=sua-chave-secreta-muito-longa-e-aleatoria-aqui
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-```
+---
 
-Para gerar uma `SECRET_KEY` segura:
-```bash
-python -c "import secrets; print(secrets.token_hex(32))"
-```
+## Frontend
 
-**4. Suba o container:**
+### Organização
+
+- **Uma folha por responsabilidade.** `tokens → base → layout → components` são carregadas em todas as páginas, nessa ordem; cada página acrescenta só a sua (`auth.css`, `dashboard.css` ou `status.css`). As media queries ficam junto do componente que ajustam.
+- **Módulos ES nativos.** Cada página carrega um único `<script type="module">` de `js/pages/`, que importa o que precisa de `js/core/`. Não há variáveis globais nem `onclick` no HTML.
+- **Sem dependências de runtime.** As únicas origens externas são as folhas de fonte (Fontshare e Google Fonts).
+
+### Dependências entre módulos
+
+| Módulo | Importa | Usado por |
+|---|---|---|
+| `core/api.js` | — | `pages/auth.js`, `pages/dashboard.js`, `pages/status.js` |
+| `core/session.js` | — | as três páginas |
+| `core/dom.js` | — | as três páginas |
+| `core/theme.js` | — | as três páginas |
+| `core/nav.js` | — | as três páginas |
+| `theme-init.js` | — (script clássico, não módulo) | `<head>` das três páginas |
+
+### Design system
+
+Os tokens de `css/tokens.css` foram portados do design system do portfólio [gcruz.dev.br](https://gcruz.dev.br):
+
+| Grupo | Valores |
+|---|---|
+| Marca / acento | crimson `#e11d48` · índigo `#6366f1` (claro: `#4f46e5`) |
+| Fundo (escuro / claro) | `#070d19` / `#f2f4f8`, com superfícies na escala slate |
+| Tipografia | Cabinet Grotesk (títulos), General Sans (texto), JetBrains Mono (rótulos, valores, logo) |
+| Raios | 8 px (botões, campos), 16 px (cards), 4 px (badges) |
+| Movimento | 150 / 250 / 400 ms, `cubic-bezier(0, 0, 0.2, 1)`; anulado com `prefers-reduced-motion` |
+| Breakpoints | 480, 640 (menu vira barra), 768, 900, 1024 px |
+
+### Segurança
+
+- **CSP em `<meta>`** em cada página: `script-src 'self'` (nenhum script inline), `style-src 'self'` + Fontshare + Google Fonts, `font-src 'self'` + `cdn.fontshare.com` + `fonts.gstatic.com`, `connect-src 'self'`.
+- **Sem `innerHTML`** com dados externos: `core/dom.js` cria elementos e insere texto.
+- **Só o token é guardado** (`sessionStorage`); a senha nunca sai do formulário e da requisição.
+
+---
+
+## Setup
+
+### Requisitos
+
+- Com Docker: Docker 24+ e Docker Compose v2.
+- Sem Docker: Python 3.11+ e pip.
+- Um navegador atual (módulos ES, `color-mix()` e `:has()`).
+
+### Com Docker
+
 ```bash
+git clone https://github.com/https-shini/AuthService.git
+cd AuthService
+cp .env.example .env          # gere e coloque uma SECRET_KEY nova
 docker compose up --build -d
 ```
 
----
-
-### Sem Docker *(execução local)*
-
-**1. Clone o repositório:**
-```bash
-git clone https://github.com/seu-usuario/auth-service.git
-cd auth-service
-```
-
-**2. Crie e ative o ambiente virtual:**
-```bash
-# Linux / Mac
-python -m venv venv
-source venv/bin/activate
-
-# Windows
-python -m venv venv
-venv\Scripts\activate
-```
-
-**3. Instale as dependências:**
-```bash
-pip install -r requirements.txt
-```
-
-**4. Crie o arquivo de variáveis de ambiente:**
-```bash
-cp .env.example .env
-# Edite o .env com sua SECRET_KEY
-```
-
----
-
-## Como Rodar
-
-### Docker
-
 | Ação | Comando |
 |---|---|
-| Subir o serviço | `docker compose up --build -d` |
-| Parar o serviço | `docker compose down` |
-| Ver logs em tempo real | `docker logs auth-service-v2 -f` |
-| Verificar status do container | `docker ps` |
+| Logs | `docker logs auth-service-v2 -f` |
+| Estado (healthy/unhealthy) | `docker ps` |
 | Reconstruir sem cache | `docker compose build --no-cache` |
-
-**Após subir, acesse:**
-```
-Frontend:  http://localhost:8000
-API Docs:  http://localhost:8000/docs
-Health:    http://localhost:8000/health
-```
-
----
+| Parar | `docker compose down` |
 
 ### Sem Docker
 
 ```bash
+git clone https://github.com/https-shini/AuthService.git
+cd AuthService
+python -m venv venv
+source venv/bin/activate      # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env          # gere e coloque uma SECRET_KEY nova
 uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-O flag `--reload` reinicia o servidor automaticamente ao detectar alterações nos arquivos — ideal para desenvolvimento.
+Para gerar a chave:
 
-**Após iniciar, acesse:**
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+### Endereços
+
 ```
 Frontend:  http://localhost:8000
-API Docs:  http://localhost:8000/docs
+Swagger:   http://localhost:8000/docs
+ReDoc:     http://localhost:8000/redoc
 Health:    http://localhost:8000/health
 ```
 
----
-
-## Estrutura de Arquivos
-
-```
-auth-service/
-│
-├── backend/                          → Código Python da API
-│   ├── api/
-│   │   └── auth_routes.py            → Endpoints HTTP (registro, login, /me, /health)
-│   ├── core/
-│   │   ├── config.py                 → Configurações via pydantic-settings + .env
-│   │   ├── logger.py                 → Logger para stdout (compatível com Docker)
-│   │   └── security.py               → bcrypt (hash de senhas) + JWT (criar/decodificar)
-│   ├── dependencies/
-│   │   └── dependencies.py           → Singleton do repositório + get_current_user
-│   ├── models/
-│   │   └── user.py                   → Entidade de domínio User (sem dependências externas)
-│   ├── repositories/
-│   │   └── user_repository.py        → CRUD in-memory com Dict[int, User]
-│   ├── schemas/
-│   │   └── user_schemas.py           → DTOs Pydantic: UserCreate, UserOut, Token
-│   ├── services/
-│   │   └── auth_service.py           → Regras de negócio: registro e autenticação
-│   └── main.py                       → Entry point: FastAPI app + mount do frontend
-│
-├── frontend/                         → Interface web (HTML/CSS/JS vanilla)
-│   ├── index.html                    → Login e cadastro com toggle animado
-│   ├── home.html                     → Dashboard do usuário autenticado
-│   ├── status.html                   → Monitoramento de endpoints em tempo real
-│   ├── css/
-│   │   ├── tokens.css                → Design tokens: cores, fontes, sombras, grid
-│   │   ├── components.css            → Header, nav, footer, botões, inputs, cards
-│   │   ├── auth.css                  → Estilos exclusivos da página de autenticação
-│   │   ├── home.css                  → Estilos do dashboard (perfil, JWT, sessão)
-│   │   ├── status.css                → Estilos do painel de status e log terminal
-│   │   └── responsive.css            → Breakpoints: 1024px, 768px, 480px, 360px
-│   └── js/
-│       ├── utils.js                  → Helpers: DOM, Session, alertas, toggleEye
-│       ├── theme.js                  → Alternância dark/light com persistência
-│       ├── nav.js                    → Menu mobile com acessibilidade (aria, Escape)
-│       ├── auth.js                   → Login, cadastro, força de senha
-│       ├── home.js                   → /me, exibição JWT, logout
-│       └── status.js                 → Ping endpoints, latência, log terminal
-│
-├── read-model/
-│   └── img/                          → Screenshots para o README
-│       ├── Banner.png
-│       ├── Login01.png
-│       ├── Login02.png
-│       ├── Cadastro01.png
-│       ├── Home01.png
-│       ├── Home02.png
-│       └── Status.png
-│
-├── .env                              → Variáveis reais (não commitado)
-├── .env.example                      → Template de configuração (commitado)
-├── .gitignore                        → Ignora .env, __pycache__, venv, etc.
-├── docker-compose.yml                → Orquestração do container
-├── Dockerfile                        → Build da imagem Python 3.11-slim
-├── requirements.txt                  → Dependências Python
-├── README.md                         → Documentação principal
-├── CONTRIBUTING.md                   → Guia de contribuição (PT-BR e EN-US)
-├── MODEL.md                          → Documentação arquitetural aprofundada
-├── STRUCTURE.md                      → Este arquivo — setup e estrutura
-└── LICENSE                           → Licença MIT
-```
-
----
-
-## Decisões Arquiteturais
-
-### Camadas separadas — routes → service → repository → model
-
-Cada camada tem responsabilidade única:
-
-- **Routes** (`auth_routes.py`) — recebe a requisição HTTP, delega ao service, retorna a resposta
-- **Service** (`auth_service.py`) — aplica regras de negócio sem conhecer HTTP
-- **Repository** (`user_repository.py`) — isola o acesso a dados; trocar in-memory por banco real exige mudança apenas aqui
-- **Model** (`user.py`) — entidade pura de domínio, sem dependências externas
-
-### Injeção de dependência com FastAPI `Depends()`
-
-O `UserRepository` é instanciado uma única vez como **singleton** em `dependencies.py` e injetado via `Depends()` em todas as rotas que precisam dele. Isso garante que os dados in-memory sejam compartilhados entre requests sem estado duplicado.
-
-### Frontend servido pelo backend
-
-A montagem do `StaticFiles` na raiz `/` é feita **após** o registro das rotas da API — garantindo que `/health`, `/register`, `/token` e `/me` tenham prioridade sobre os arquivos estáticos. Isso elimina a necessidade de um servidor web separado no deploy.
-
-### Healthcheck integrado ao Docker
-
-O `Dockerfile` declara um `HEALTHCHECK` apontando para `GET /health`. O Docker monitora automaticamente a saúde do container e o `docker ps` exibe o status `(healthy)` ou `(unhealthy)`.
-
----
-
-> ⚠️ **Atenção** — O armazenamento in-memory significa que **todos os usuários são perdidos ao reiniciar o container**. Isso é esperado para o escopo atual do projeto. Para persistência real, a próxima evolução seria integrar SQLite com SQLAlchemy, alterando apenas `user_repository.py`.
+> ⚠️ O armazenamento é em memória: todos os usuários são perdidos quando o processo ou o container reinicia.
 
 <img width=100% src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6&height=120&section=footer"/>

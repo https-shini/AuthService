@@ -1,0 +1,156 @@
+/* ==========================================================================
+   dashboard.css — Painel da conta (home.html)
+   Depende de: tokens.css, base.css, layout.css, components.css
+   ========================================================================== */
+
+.dashboard-alert:not(:empty) {
+    margin-bottom: var(--space-6);
+}
+
+.dashboard-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    padding: var(--space-10) var(--space-6);
+    color: var(--color-text-3);
+}
+
+.empty-state__icon--warning {
+    color: var(--color-warning-text);
+    background: var(--color-warning-subtle);
+    border-color: var(--color-warning-border);
+}
+
+/* Grade: perfil e detalhes técnicos ocupam a largura toda; conta e sessão
+   ficam lado a lado a partir de 768px. */
+.dashboard-grid {
+    display: grid;
+    gap: var(--space-6);
+    animation: fade-in var(--duration-base) var(--ease-out);
+}
+
+@media (min-width: 768px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .profile,
+    .token-card {
+        grid-column: 1 / -1;
+    }
+}
+
+/* Perfil ------------------------------------------------------------------ */
+.profile {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-6);
+    padding: var(--space-6);
+}
+
+.profile__main {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    min-width: 0;
+}
+
+/* Iniciais com moldura crimson → índigo, a mesma moldura da foto do
+   portfólio. Não há foto real do usuário, então não usamos imagem. */
+.profile__avatar {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: 72px;
+    height: 72px;
+    font-family: var(--font-display);
+    font-size: var(--text-2xl);
+    font-weight: 700;
+    color: var(--color-text-1);
+    text-transform: uppercase;
+    background:
+        linear-gradient(var(--color-surface-3), var(--color-surface-3)) padding-box,
+        linear-gradient(135deg, var(--color-brand), var(--color-accent)) border-box;
+    border: 2px solid transparent;
+    border-radius: var(--radius-xl);
+}
+
+.profile__identity {
+    display: grid;
+    justify-items: start;
+    gap: var(--space-2);
+    min-width: 0;
+}
+
+.profile__email {
+    max-width: 100%;
+    font-size: var(--text-3xl);
+    letter-spacing: var(--ls-snug);
+    overflow-wrap: anywhere;
+}
+
+.profile__meta {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--color-text-3);
+}
+
+.profile__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+}
+
+@media (max-width: 479px) {
+    .profile__main {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .profile__actions,
+    .profile__actions .btn {
+        width: 100%;
+    }
+}
+
+/* Sessão ------------------------------------------------------------------ */
+.kv__sub {
+    display: block;
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-3);
+}
+
+.kv__sub[data-tone="warning"] {
+    color: var(--color-warning-text);
+}
+
+/* Detalhes técnicos ------------------------------------------------------- */
+.token-card__body {
+    display: grid;
+    gap: var(--space-4);
+}
+
+.token-card__value {
+    max-height: 9rem;
+    overflow: auto;
+}
+
+.token-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.token-card__feedback {
+    font-size: var(--text-sm);
+    color: var(--color-success-text);
+}
+
+.token-card__feedback[data-tone="error"] {
+    color: var(--color-error-text);
+}
