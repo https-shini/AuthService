@@ -145,7 +145,7 @@
                         <p class="endpoint__desc">Dados do usuário autenticado. Verificado com o token da sessão deste navegador.</p>
                         <dl class="kv">
                             <div class="kv__row"><dt class="kv__key">Autenticação</dt><dd class="kv__value">Bearer token</dd></div>
-                            <div class="kv__row"><dt class="kv__key">Respostas</dt><dd class="kv__value">200 · { id, email } · 401</dd></div>
+                            <div class="kv__row"><dt class="kv__key">Respostas</dt><dd class="kv__value">200 · { id, email, name } · 401</dd></div>
                             <div class="kv__row"><dt class="kv__key">HTTP medido</dt><dd class="kv__value" id="ep-me-http">—</dd></div>
                             <div class="kv__row"><dt class="kv__key">Tempo de resposta</dt><dd class="kv__value" id="ep-me-ms">—</dd></div>
                             <div class="kv__row"><dt class="kv__key">Última verificação</dt><dd class="kv__value" id="ep-me-time">—</dd></div>
@@ -168,11 +168,11 @@
                         <span class="status-pill"><span class="status-dot" data-state="idle"></span>Não verificado</span>
                     </div>
                     <div class="card__body">
-                        <p class="endpoint__desc">Cria um usuário com e-mail e senha.</p>
+                        <p class="endpoint__desc">Cria um usuário. E-mail sem diferenciar maiúsculas; nome opcional.</p>
                         <dl class="kv">
                             <div class="kv__row"><dt class="kv__key">Autenticação</dt><dd class="kv__value">não requer</dd></div>
-                            <div class="kv__row"><dt class="kv__key">Corpo (JSON)</dt><dd class="kv__value">{ email, password }</dd></div>
-                            <div class="kv__row"><dt class="kv__key">Respostas</dt><dd class="kv__value">200 · { id, email } · 400 · 422</dd></div>
+                            <div class="kv__row"><dt class="kv__key">Corpo (JSON)</dt><dd class="kv__value">{ email, password, name? }</dd></div>
+                            <div class="kv__row"><dt class="kv__key">Respostas</dt><dd class="kv__value">201 · { id, email, name } · 400 · 422</dd></div>
                         </dl>
                     </div>
                     <div class="card__footer">
@@ -186,15 +186,49 @@
                         <span class="status-pill"><span class="status-dot" data-state="idle"></span>Não verificado</span>
                     </div>
                     <div class="card__body">
-                        <p class="endpoint__desc">Autentica e devolve o token de acesso.</p>
+                        <p class="endpoint__desc">Autentica, devolve o token de acesso e abre a sessão (cookies HttpOnly). Limitado contra força bruta.</p>
                         <dl class="kv">
                             <div class="kv__row"><dt class="kv__key">Autenticação</dt><dd class="kv__value">não requer</dd></div>
                             <div class="kv__row"><dt class="kv__key">Corpo (form)</dt><dd class="kv__value">username, password</dd></div>
-                            <div class="kv__row"><dt class="kv__key">Respostas</dt><dd class="kv__value">200 · { access_token, token_type } · 401 · 422</dd></div>
+                            <div class="kv__row"><dt class="kv__key">Respostas</dt><dd class="kv__value">200 · { access_token, token_type } · 401 · 422 · 429</dd></div>
                         </dl>
                     </div>
                     <div class="card__footer">
-                        <p class="card__note">Não é verificado automaticamente: exigiria credenciais e registraria uma tentativa de login.</p>
+                        <p class="card__note">Não é verificado automaticamente: exigiria credenciais e contaria como tentativa de login.</p>
+                    </div>
+                </article>
+
+                <article class="card endpoint" aria-labelledby="ep-refresh-path">
+                    <div class="card__header">
+                        <h3 class="endpoint__name"><span class="method method--post">POST</span><code id="ep-refresh-path">/refresh</code></h3>
+                        <span class="status-pill"><span class="status-dot" data-state="idle"></span>Não verificado</span>
+                    </div>
+                    <div class="card__body">
+                        <p class="endpoint__desc">Troca o refresh token (rotação) e emite um novo token de acesso.</p>
+                        <dl class="kv">
+                            <div class="kv__row"><dt class="kv__key">Autenticação</dt><dd class="kv__value">cookie HttpOnly + X-CSRF-Token</dd></div>
+                            <div class="kv__row"><dt class="kv__key">Respostas</dt><dd class="kv__value">200 · { access_token, token_type } · 401 · 403</dd></div>
+                        </dl>
+                    </div>
+                    <div class="card__footer">
+                        <p class="card__note">Não é verificado aqui: cada chamada troca o refresh token da sessão. O painel o usa quando o token de acesso vence.</p>
+                    </div>
+                </article>
+
+                <article class="card endpoint" aria-labelledby="ep-logout-path">
+                    <div class="card__header">
+                        <h3 class="endpoint__name"><span class="method method--post">POST</span><code id="ep-logout-path">/logout</code></h3>
+                        <span class="status-pill"><span class="status-dot" data-state="idle"></span>Não verificado</span>
+                    </div>
+                    <div class="card__body">
+                        <p class="endpoint__desc">Revoga a sessão no servidor: o token de acesso e o refresh token.</p>
+                        <dl class="kv">
+                            <div class="kv__row"><dt class="kv__key">Autenticação</dt><dd class="kv__value">Bearer, ou cookie + X-CSRF-Token</dd></div>
+                            <div class="kv__row"><dt class="kv__key">Respostas</dt><dd class="kv__value">204 · 403</dd></div>
+                        </dl>
+                    </div>
+                    <div class="card__footer">
+                        <p class="card__note">Não é verificado aqui: encerraria a sessão. Use "Encerrar sessão" no painel.</p>
                     </div>
                 </article>
             </div>

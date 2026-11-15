@@ -143,9 +143,18 @@
                     <div class="auth-panel" role="tabpanel" id="panel-register" aria-labelledby="tab-register" hidden>
                         <div class="auth-panel__head">
                             <h2 class="auth-panel__title">Crie sua conta</h2>
-                            <p class="auth-panel__text">Só precisamos de um e-mail e de uma senha.</p>
+                            <p class="auth-panel__text">E-mail e senha são obrigatórios; o nome é opcional.</p>
                         </div>
                         <form class="auth-form" id="register-form" novalidate>
+                            <div class="field">
+                                <label class="field__label" for="register-name">Nome <span class="field__optional">(opcional)</span></label>
+                                <div class="field__control">
+                                    <svg class="icon field__icon" aria-hidden="true" focusable="false"><use href="public/icons.svg#user" /></svg>
+                                    <input class="field__input" id="register-name" name="name" type="text" autocomplete="name" maxlength="100" aria-describedby="register-name-error" />
+                                </div>
+                                <p class="field__error" id="register-name-error"></p>
+                            </div>
+
                             <div class="field">
                                 <label class="field__label" for="register-email">E-mail</label>
                                 <div class="field__control">

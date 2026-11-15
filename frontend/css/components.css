@@ -251,6 +251,13 @@
     color: var(--color-text-2);
 }
 
+.field__optional {
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--color-text-4);
+}
+
 .field__control {
     position: relative;
     display: flex;

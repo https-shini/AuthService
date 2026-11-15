@@ -5,11 +5,18 @@
    auth_routes.py) e não devem mudar a partir do frontend:
 
      GET  /health    → 200 { status, message }
-     POST /register  → JSON { email, password } → 200 { id, email }
+     POST /register  → JSON { email, password, name? } → 201 { id, email, name }
                        400 e-mail já registrado · 422 validação
      POST /token     → form-urlencoded { username, password }
-                       → 200 { access_token, token_type: "bearer" } · 401
-     GET  /me        → Authorization: Bearer <token> → 200 { id, email } · 401
+                       → 200 { access_token, token_type: "bearer" } + cookies
+                       de sessão (refresh HttpOnly e CSRF) · 401 · 429
+     POST /refresh   → cookie de refresh + header X-CSRF-Token
+                       → 200 { access_token, token_type } · 401 · 403
+     POST /logout    → Bearer e/ou cookie + X-CSRF-Token → 204 · 403
+     GET  /me        → Authorization: Bearer <token> → 200 { id, email, name } · 401
+
+   Os cookies vão sozinhos (mesma origem, credentials: "same-origin"); o
+   frontend nunca vê o refresh token, que é HttpOnly.
 
    `request()` nunca lança exceção: devolve { ok, status, data, durationMs,
    error }, com `error.kind` em um conjunto fechado, para que todas as
@@ -22,7 +29,9 @@ export const ErrorKind = Object.freeze({
     NETWORK: "network", //       sem resposta (servidor fora, CORS, offline)
     TIMEOUT: "timeout", //       sem resposta dentro do prazo
     UNAUTHORIZED: "unauthorized", // 401
+    FORBIDDEN: "forbidden", //       403 (CSRF)
     BAD_REQUEST: "bad_request", //  400
+    RATE_LIMITED: "rate_limited", // 429 (ver retryAfter)
     VALIDATION: "validation", //   422
     SERVER: "server", //           5xx
     HTTP: "http", //               qualquer outro status de erro
@@ -63,8 +72,20 @@ export function parseErrorDetail(detail) {
     return { message: "", fields: [] };
 }
 
-function describeHttpError(status, data) {
+function describeHttpError(status, data, headers) {
     const { message, fields } = parseErrorDetail(data?.detail);
+    if (status === 429) {
+        const retryAfter = Number.parseInt(headers?.get("retry-after") ?? "", 10);
+        return {
+            kind: ErrorKind.RATE_LIMITED,
+            message: message || "Muitas tentativas. Aguarde e tente novamente.",
+            retryAfter: Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null,
+            fields,
+        };
+    }
+    if (status === 403) {
+        return { kind: ErrorKind.FORBIDDEN, message: message || "Operação recusada.", fields };
+    }
     if (status === 401) {
         return {
             kind: ErrorKind.UNAUTHORIZED,
@@ -101,10 +122,18 @@ function describeHttpError(status, data) {
 }
 
 async function readJson(response) {
-    const type = response.headers.get("content-type") ?? "";
-    if (!type.includes("application/json")) return null;
+    // O corpo é sempre lido até o fim (inclusive em 204): requisição com
+    // corpo pendente fica aberta e é abortada se a página navegar em seguida.
+    let text = "";
     try {
-        return await response.json();
+        text = await response.text();
+    } catch {
+        return null;
+    }
+    const type = response.headers.get("content-type") ?? "";
+    if (!text || !type.includes("application/json")) return null;
+    try {
+        return JSON.parse(text);
     } catch {
         return null;
     }
@@ -112,9 +141,9 @@ async function readJson(response) {
 
 export async function request(
     path,
-    { method = "GET", json, form, token, timeout = DEFAULT_TIMEOUT_MS } = {},
+    { method = "GET", json, form, token, headers: extraHeaders = {}, timeout = DEFAULT_TIMEOUT_MS } = {},
 ) {
-    const headers = { Accept: "application/json" };
+    const headers = { Accept: "application/json", ...extraHeaders };
     let body;
 
     if (json !== undefined) {
@@ -147,7 +176,7 @@ export async function request(
             status: response.status,
             data,
             durationMs,
-            error: response.ok ? null : describeHttpError(response.status, data),
+            error: response.ok ? null : describeHttpError(response.status, data, response.headers),
         };
     } catch (error) {
         const timedOut = error?.name === "AbortError";
@@ -177,12 +206,23 @@ export async function request(
 
 export const api = {
     health: () => request("/health"),
-    register: (email, password) =>
-        request("/register", { method: "POST", json: { email, password } }),
+    register: (email, password, name) =>
+        request("/register", {
+            method: "POST",
+            json: name ? { email, password, name } : { email, password },
+        }),
     login: (email, password) =>
         request("/token", {
             method: "POST",
             form: { username: email, password },
         }),
     me: (token) => request("/me", { token }),
+    refresh: (csrfToken) =>
+        request("/refresh", { method: "POST", headers: { "X-CSRF-Token": csrfToken } }),
+    logout: (token, csrfToken) =>
+        request("/logout", {
+            method: "POST",
+            token,
+            headers: csrfToken ? { "X-CSRF-Token": csrfToken } : {},
+        }),
 };

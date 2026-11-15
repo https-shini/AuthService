@@ -9,8 +9,8 @@
    ========================================================================== */
 
 import { api, ErrorKind } from "../core/api.js";
-import { saveSession, getSession, isExpired } from "../core/session.js";
-import { $, $$, setText, showAlert, clearAlert, setBusy, formatTime } from "../core/dom.js";
+import { saveSession, getSession, isExpired, canRefresh } from "../core/session.js";
+import { $, $$, setText, showAlert, clearAlert, setBusy, formatTime, formatDuration } from "../core/dom.js";
 import { initTheme } from "../core/theme.js";
 import { initNav } from "../core/nav.js";
 
@@ -26,6 +26,11 @@ const PASSWORD_RULES = {
 };
 
 const STRENGTH_LABELS = ["—", "Fraca", "Razoável", "Boa", "Forte", "Excelente"];
+
+// Limites de backend/schemas/user_schemas.py.
+const PASSWORD_MAX_BYTES = 72; // bcrypt ignora o que passa disso
+const NAME_MAX_LENGTH = 100;
+const utf8Length = (value) => new TextEncoder().encode(value).length;
 
 const tabs = { login: $("#tab-login"), register: $("#tab-register") };
 const panels = { login: $("#panel-login"), register: $("#panel-register") };
@@ -152,7 +157,7 @@ function initLogin() {
 
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        if (pending) return;
+        if (pending || submit.disabled) return;
         clearAlert(alert);
 
         const emailValue = email.value.trim();
@@ -188,6 +193,17 @@ function initLogin() {
         setBusy(submit, false);
 
         const error = result.error ?? { kind: ErrorKind.HTTP, message: "Resposta inesperada." };
+        if (error.kind === ErrorKind.RATE_LIMITED) {
+            showAlert(alert, {
+                type: "warning",
+                title: "Muitas tentativas",
+                message: error.retryAfter
+                    ? `Por segurança, o login foi pausado após várias tentativas sem sucesso. Tente novamente em ${formatDuration(error.retryAfter * 1000)}.`
+                    : error.message,
+            });
+            if (error.retryAfter) lockButton(submit, error.retryAfter);
+            return;
+        }
         if (error.kind === ErrorKind.UNAUTHORIZED) {
             showAlert(alert, {
                 type: "error",
@@ -204,6 +220,28 @@ function initLogin() {
         }
         showAlert(alert, { type: "error", ...describeFailure(error) });
     });
+}
+
+/* Bloqueio temporário do botão após 429, com contagem regressiva. */
+function lockButton(button, seconds) {
+    const label = $(".btn__label", button);
+    const idleLabel = label.textContent;
+    let remaining = seconds;
+    button.disabled = true;
+    const tick = () => {
+        if (remaining <= 0) {
+            window.clearInterval(timer);
+            label.textContent = idleLabel;
+            button.disabled = false;
+            return;
+        }
+        const minutes = Math.floor(remaining / 60);
+        const seconds = String(remaining % 60).padStart(2, "0");
+        label.textContent = `Aguarde ${minutes}:${seconds}`;
+        remaining -= 1;
+    };
+    const timer = window.setInterval(tick, 1000);
+    tick();
 }
 
 /* Criar conta -------------------------------------------------------------- */
@@ -232,12 +270,14 @@ function updatePasswordHelp(value) {
 
 function initRegister() {
     const form = $("#register-form");
+    const name = $("#register-name");
     const email = $("#register-email");
     const password = $("#register-password");
     const submit = $("#register-submit");
     const alert = $("#register-alert");
     let pending = false;
 
+    name.addEventListener("input", () => setFieldError(name, null));
     email.addEventListener("input", () => setFieldError(email, null));
     password.addEventListener("input", () => {
         setFieldError(password, null);
@@ -250,20 +290,21 @@ function initRegister() {
         if (pending) return;
         clearAlert(alert);
 
+        const nameValue = name.value.replace(/\s+/g, " ").trim();
         const emailValue = email.value.trim();
         const unmet = Object.entries(PASSWORD_RULES)
             .filter(([, rule]) => !rule(password.value))
-            .map(([name]) => name);
+            .map(([rule]) => rule);
+        let passwordMessage = null;
+        if (!password.value) passwordMessage = "Informe uma senha.";
+        else if (unmet.length) passwordMessage = "A senha ainda não atende a todos os requisitos abaixo.";
+        else if (utf8Length(password.value) > PASSWORD_MAX_BYTES) {
+            passwordMessage = `A senha pode ter no máximo ${PASSWORD_MAX_BYTES} bytes (cerca de ${PASSWORD_MAX_BYTES} caracteres sem acento).`;
+        }
         const errors = [
+            [name, nameValue.length > NAME_MAX_LENGTH ? `O nome pode ter no máximo ${NAME_MAX_LENGTH} caracteres.` : null],
             [email, emailError(emailValue)],
-            [
-                password,
-                !password.value
-                    ? "Informe uma senha."
-                    : unmet.length
-                      ? "A senha ainda não atende a todos os requisitos abaixo."
-                      : null,
-            ],
+            [password, passwordMessage],
         ];
         for (const [input, message] of errors) setFieldError(input, message);
         const firstInvalid = errors.find(([, message]) => message)?.[0];
@@ -274,12 +315,13 @@ function initRegister() {
 
         pending = true;
         setBusy(submit, true, "Criando conta…");
-        const result = await api.register(emailValue, password.value);
+        const result = await api.register(emailValue, password.value, nameValue || undefined);
         pending = false;
         setBusy(submit, false);
 
         if (result.ok) {
             const createdEmail = result.data?.email ?? emailValue;
+            const greeting = result.data?.name ? `${result.data.name}, sua conta` : "Conta";
             form.reset();
             hidePassword(password);
             updatePasswordHelp("");
@@ -288,7 +330,7 @@ function initRegister() {
             showAlert($("#login-alert"), {
                 type: "success",
                 title: "Conta criada",
-                message: `Conta criada para ${createdEmail}. Agora entre com a sua senha.`,
+                message: `${greeting} foi criada para ${createdEmail}. Agora entre com a sua senha.`,
             });
             $("#login-password").focus();
             return;
@@ -301,7 +343,7 @@ function initRegister() {
             return;
         }
         if (error.kind === ErrorKind.VALIDATION &&
-            applyFieldErrors(error, { email, password })) {
+            applyFieldErrors(error, { name, email, password })) {
             form.querySelector('[aria-invalid="true"]')?.focus();
             return;
         }
@@ -330,23 +372,33 @@ function showSessionNotice() {
         });
         return;
     }
+    if (reason === "encerrada-local") {
+        showAlert(region, {
+            type: "warning",
+            title: "Sessão removida deste navegador",
+            message: "O servidor não confirmou o encerramento (sem conexão). A sessão expira sozinha no prazo; se estiver em um computador compartilhado, feche o navegador.",
+        });
+        return;
+    }
     if (reason === "encerrada") {
         showAlert(region, {
             type: "success",
             title: "Sessão encerrada",
-            message: "Os dados de autenticação foram removidos deste navegador.",
+            message: "A sessão foi revogada no servidor e os dados de autenticação foram removidos deste navegador.",
         });
         return;
     }
 
     const session = getSession();
-    if (session && !session.malformed && !isExpired(session)) {
+    const renewable = canRefresh();
+    if (session && !session.malformed && (!isExpired(session) || renewable)) {
+        let message = "Há uma sessão ativa neste navegador.";
+        if (renewable) message = "A sessão é renovada automaticamente enquanto o navegador estiver aberto.";
+        else if (session.expiresAt) message = `A sessão atual vale até ${formatTime(session.expiresAt)}.`;
         showAlert(region, {
             type: "info",
             title: "Você já está conectado",
-            message: session.expiresAt
-                ? `A sessão atual vale até ${formatTime(session.expiresAt)}.`
-                : "Há uma sessão ativa neste navegador.",
+            message,
             action: { href: "home.html", label: "Ir para o painel" },
         });
     }

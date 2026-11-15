@@ -85,7 +85,7 @@
     min-width: 0;
 }
 
-.profile__email {
+.profile__title {
     max-width: 100%;
     font-size: var(--text-3xl);
     letter-spacing: var(--ls-snug);
@@ -93,9 +93,13 @@
 }
 
 .profile__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-3);
     font-family: var(--font-mono);
     font-size: var(--text-sm);
     color: var(--color-text-3);
+    overflow-wrap: anywhere;
 }
 
 .profile__actions {

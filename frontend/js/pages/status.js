@@ -4,15 +4,20 @@
    Todo indicador reflete uma consulta real feita por este navegador:
      · GET /health → disponibilidade geral (é o que define o resumo);
      · GET /me     → só com sessão; sem token fica "não verificado".
-   /register e /token não são consultados (criariam usuários ou tentativas
-   de login) e permanecem "não verificado" no HTML.
+   /register, /token, /refresh e /logout não são consultados (criariam
+   usuários, registrariam tentativas de login, trocariam ou encerrariam a
+   sessão) e permanecem "não verificado" no HTML.
+
+   /me usa a mesma renovação do painel: se o token venceu e há sessão
+   renovável, renova antes; um 401 só é mostrado se a renovação também falhar.
 
    Estados: ok · down (erro HTTP) · auth (401) · comm (rede/timeout) ·
    idle (não verificado) · checking (em andamento).
    ========================================================================== */
 
 import { api, ErrorKind } from "../core/api.js";
-import { getSession, clearSession } from "../core/session.js";
+import { getSession } from "../core/session.js";
+import { withSession } from "../core/auth.js";
 import { $, $$, h, setText, setBusy, formatTime } from "../core/dom.js";
 import { initTheme } from "../core/theme.js";
 import { initNav } from "../core/nav.js";
@@ -146,20 +151,27 @@ async function checkMe() {
     note.hidden = true;
     setEndpoint("me", "checking");
 
-    const result = await api.me(session.token);
+    // localChecks: false → o token vai ao servidor mesmo malformado, para
+    // o resultado exibido ser o veredito real da API.
+    const { outcome, result, renewed } = await withSession((token) => api.me(token), { localChecks: false });
     const at = new Date();
-    const state = classify(result);
 
-    recordMeasurement("me", result, at);
-    addHistory({ at, endpoint: "GET /me", state, result });
-
-    if (state === "auth") {
-        // Token recusado: remove a sessão local, como no painel.
-        clearSession();
-        setEndpoint("me", "auth", "Falha de autenticação · token removido");
-    } else {
-        setEndpoint("me", state);
+    if (!result) {
+        // Não chegou a chamar /me: a renovação falhou por falta de conexão.
+        setEndpoint("me", "comm", "Falha de comunicação · renovação");
+        return "comm";
     }
+
+    const state = classify(result);
+    recordMeasurement("me", result, at);
+    addHistory({ at, endpoint: renewed ? "GET /me (após renovar)" : "GET /me", state, result });
+
+    if (outcome === "invalid") {
+        // Token recusado e sem renovação: a sessão local foi removida.
+        setEndpoint("me", "auth", "Falha de autenticação · token removido");
+        return "auth";
+    }
+    setEndpoint("me", state);
     return state;
 }
 

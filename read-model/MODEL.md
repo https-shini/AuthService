@@ -17,40 +17,55 @@ Este documento descreve **o que está implementado hoje**. O que ainda é plano 
 
 ## Entidades
 
-O domínio tem uma única entidade persistida, `User`, e nenhum relacionamento.
+Há uma entidade de domínio persistida, `User`, e o estado de sessão mantido pelo `TokenService`. Tudo fica em memória, por processo.
 
 ### `User` — `backend/models/user.py`
 
 | Atributo | Tipo | Origem | Observação |
 |---|---|---|---|
 | `id` | `int` | gerado pelo repositório | auto-incremental a partir de 1, por processo |
-| `email` | `str` | cadastro | validado como `EmailStr`; o domínio é normalizado para minúsculas pelo validador, a parte local não |
+| `email` | `str` | cadastro | normalizado para minúsculas (domínio e parte local) — ver [política de e-mail](#política-de-e-mail) |
 | `hashed_password` | `str` | cadastro | hash bcrypt com salt aleatório; a senha em texto nunca é guardada |
+| `name` | `str \| None` | cadastro (opcional) | nome de exibição; `None` para quem não informou e para usuários anteriores ao campo |
 
-> **Não existe campo de nome.** Versões anteriores do frontend pediam "nome completo", mas o valor era descartado: o backend nunca o recebeu nem o persistiu. O frontend atual não coleta nome. Adicionar `name` exige mudança no modelo e no schema (ver roadmap).
+### Sessão — `backend/services/token_service.py`
+
+Cada login abre uma sessão; uma sessão pertence a um usuário e tem vários tokens ao longo da vida.
+
+| Elemento | Conteúdo | Guardado como |
+|---|---|---|
+| Sessão (`sid`) | `user_id`, prazo absoluto, `revoked` | registro em memória |
+| Refresh token | valor aleatório de 256 bits, um por rotação | hash SHA-256 → `sid`, hash do CSRF, instante da rotação |
+| Token CSRF | valor aleatório de 256 bits, renovado a cada refresh | hash SHA-256, junto do refresh |
+| Access tokens revogados | `jti` → `exp` | removidos quando o `exp` passa |
+
+Relacionamentos: `User 1 ── N Sessão 1 ── N refresh tokens (só o último é válido)`. Um access token aponta para a sessão pelo `sid`.
 
 ### Schemas (DTOs) — `backend/schemas/user_schemas.py`
 
 | Schema | Uso | Campos |
 |---|---|---|
-| `UserCreate` | corpo de `POST /register` | `email: EmailStr`, `password: str` (validado, ver regras) |
-| `UserOut` | resposta de `/register` e `/me` | `id: int`, `email: EmailStr` |
-| `Token` | resposta de `/token` | `access_token: str`, `token_type: str` (sempre `"bearer"`) |
+| `UserCreate` | corpo de `POST /register` | `email: EmailStr` (normalizado), `password: str`, `name: str \| None` |
+| `UserOut` | resposta de `/register` e `/me` | `id: int`, `email: EmailStr`, `name: str \| None` |
+| `Token` | resposta de `/token` e `/refresh` | `access_token: str`, `token_type: str` (sempre `"bearer"`) |
 
-O login não usa schema próprio: recebe `OAuth2PasswordRequestForm` (form-urlencoded com `username` e `password`).
+O login recebe `OAuth2PasswordRequestForm` (form-urlencoded com `username` e `password`).
 
-### Payload do JWT — `backend/core/security.py`
+### Access token (JWT) — `backend/core/security.py`
 
 | Claim | Conteúdo |
 |---|---|
-| `sub` | e-mail do usuário |
-| `exp` | instante de expiração (agora + `ACCESS_TOKEN_EXPIRE_MINUTES`) |
+| `sub` | e-mail do usuário, como está salvo |
+| `sid` | sessão à qual o token pertence |
+| `jti` | identificador único (permite revogar este token) |
+| `type` | sempre `"access"` |
+| `iat` / `exp` | emissão e expiração (`ACCESS_TOKEN_EXPIRE_MINUTES`, limitada ao fim da sessão) |
 
-Assinatura `HS256` (configurável por `ALGORITHM`) com `SECRET_KEY`. Não há `iat`, `jti`, papéis ou outros claims.
+Assinatura `HS256` (ou `HS384`/`HS512` por `ALGORITHM`) com `SECRET_KEY`. Tokens sem `sid`, `jti` ou `type` — como os emitidos por versões anteriores — são recusados.
 
-### Armazenamento — `backend/repositories/user_repository.py`
+### Repositório — `backend/repositories/user_repository.py`
 
-`UserRepository` guarda `Dict[int, User]` em memória, com uma instância única (singleton) criada em `dependencies.py`. A busca por e-mail percorre todos os usuários (O(n)) e compara a string exatamente. Tudo se perde quando o processo reinicia.
+`Dict[int, User]` em memória, com índice pela forma normalizada do e-mail. Instância única criada em `dependencies.py`, junto com o `TokenService` e o `LoginRateLimiter`.
 
 ---
 
@@ -58,18 +73,34 @@ Assinatura `HS256` (configurável por `ALGORITHM`) com `SECRET_KEY`. Não há `i
 
 | # | Regra | Onde | Resultado quando violada |
 |---|---|---|---|
-| R1 | E-mail precisa ser válido | `UserCreate.email` (`EmailStr`) | `422` |
-| R2 | Senha com no mínimo 8 caracteres | `UserCreate.password` (`min_length=8`) | `422` |
-| R3 | Senha com pelo menos um número | validador `password_strength` | `422` — "A senha deve conter pelo menos um número" |
-| R4 | Senha com pelo menos uma letra | validador `password_strength` | `422` — "A senha deve conter pelo menos uma letra" |
-| R5 | E-mail único | `AuthService.register_user` | `400` — "Email já registrado" |
-| R6 | Login exige e-mail existente e senha que confere com o hash | `AuthService.authenticate_user` | `401` — "Email ou senha incorretos" |
-| R7 | Rotas protegidas exigem token válido, não expirado, cujo `sub` exista | `get_current_user` | `401` — "Não foi possível validar as credenciais" |
+| R1 | E-mail válido | `UserCreate.email` (`EmailStr`) | `422` |
+| R2 | Senha com 8 caracteres ou mais | `min_length=8` | `422` |
+| R3 | Senha com pelo menos um número | `password_strength` | `422` — "A senha deve conter pelo menos um número" |
+| R4 | Senha com pelo menos uma letra | `password_strength` | `422` — "A senha deve conter pelo menos uma letra" |
+| R5 | Senha com no máximo 72 bytes (limite do bcrypt) | `password_strength` | `422` — "A senha pode ter no máximo 72 bytes" |
+| R6 | Nome opcional: até 100 caracteres, sem caracteres de controle; espaços são aparados e unificados; vazio vira `null` | `clean_name` | `422` |
+| R7 | E-mail único, sem diferenciar maiúsculas | `AuthService.register_user` | `400` — "Email já registrado" |
+| R8 | Login exige conta existente e senha correta | `AuthService.authenticate_user` | `401` — "Email ou senha incorretos" (igual para e-mail inexistente) |
+| R9 | Limite de tentativas de login (IP, IP + conta, conta) | `LoginRateLimiter` | `429` + `Retry-After` |
+| R10 | Rotas protegidas exigem access token válido, não expirado, não revogado, de sessão ativa e de usuário existente | `get_current_user` | `401` — "Não foi possível validar as credenciais" |
+| R11 | Refresh exige cookie de refresh válido e o CSRF da mesma sessão | `TokenService.rotate` | `403` (CSRF) · `401` (sessão inválida/expirada/revogada) |
+| R12 | Refresh token já trocado reaparecendo após a tolerância revoga a sessão | `TokenService.rotate` | `401` e sessão revogada |
 
 Observações:
-- R3 e R4 usam `str.isdigit()` e `str.isalpha()`, que aceitam caracteres Unicode (letras acentuadas contam como letra).
-- Maiúsculas e símbolos **não** são exigidos. O medidor de força do frontend os valoriza, mas é só indicativo.
-- O e-mail é comparado exatamente (R5, R6): `Usuario@x.com` e `usuario@x.com` são contas diferentes.
+- R3 e R4 usam `str.isdigit()` e `str.isalpha()`, que aceitam Unicode (letras acentuadas contam).
+- Maiúsculas e símbolos **não** são exigidos; o medidor de força do frontend é só indicativo.
+- Para e-mail inexistente o login executa um bcrypt descartável: o tempo de resposta não revela se a conta existe.
+
+### Política de e-mail
+
+- **Regra:** o endereço inteiro é armazenado e comparado em minúsculas, sem espaços nas pontas (`backend/core/email.py`). Vale no cadastro, no login e no rate limiting.
+- **Compatibilidade:** contas criadas antes da regra podem ter maiúsculas na parte local. Não há migração (o e-mail salvo não é reescrito). O login procura, nesta ordem:
+  1. igualdade exata com o texto digitado;
+  2. igualdade exata com a forma normalizada;
+  3. uma única conta com a mesma forma normalizada.
+
+  Se no passo 3 houver mais de uma candidata (duplicatas antigas que só diferem na caixa, nenhuma em minúsculas), o login é recusado com o `401` genérico; cada uma continua entrando com a forma exata.
+- **Duplicatas novas** são impossíveis: o cadastro compara pela forma normalizada, inclusive contra contas antigas.
 
 ---
 
@@ -78,48 +109,56 @@ Observações:
 ### Cadastro
 
 ```
-1. Usuário informa e-mail e senha na aba "Criar conta".
-2. Frontend valida no cliente as mesmas regras R1–R4 e mostra os erros por campo.
-3. POST /register  (JSON { email, password })
-4. Pydantic valida R1–R4  → 422 com a lista de erros, se houver.
-5. AuthService verifica R5 → 400 se o e-mail já existe.
+1. Usuário informa nome (opcional), e-mail e senha na aba "Criar conta".
+2. Frontend valida no cliente as mesmas regras (R1–R6) e mostra erros por campo.
+3. POST /register  (JSON { email, password, name? })
+4. Pydantic normaliza e valida → 422 com a lista de erros, se houver.
+5. AuthService verifica R7 → 400 se o e-mail já existe (ignorando maiúsculas).
 6. bcrypt gera o hash; o repositório salva o usuário com o próximo ID.
-7. 200 { id, email }. A senha nunca volta na resposta.
-8. Frontend muda para a aba "Entrar" com o e-mail preenchido.
+7. 201 { id, email, name }. A senha nunca volta na resposta.
+8. Frontend muda para "Entrar" com o e-mail normalizado preenchido.
 ```
 
-### Login e acesso à rota protegida
+### Login
 
 ```
 1. POST /token  (form username=<e-mail>, password)
-2. AuthService busca o usuário e confere o hash (R6) → 401 se falhar.
-3. JWT com sub=e-mail e exp=agora+N minutos, assinado com SECRET_KEY.
-4. 200 { access_token, token_type: "bearer" }
-5. Frontend guarda só o token no sessionStorage (e o horário do login) e vai para o painel.
-6. GET /me com Authorization: Bearer <token>
-7. get_current_user decodifica e valida o token, busca o usuário pelo sub (R7).
-8. 200 { id, email }
+2. Rate limiting: bloqueado → 429 + Retry-After (a senha nem é verificada).
+3. AuthService encontra a conta (política de e-mail) e confere o hash → 401 se falhar
+   (a falha conta para o IP+conta e para a conta).
+4. TokenService abre a sessão: access token (corpo) + cookies de refresh (HttpOnly) e CSRF.
+5. Frontend guarda só o access token no sessionStorage e vai para o painel.
 ```
 
-### Expiração e encerramento de sessão (frontend)
+### Uso, renovação e encerramento
 
 ```
-· O painel lê exp do token apenas para exibir o prazo e agendar o encerramento.
-· Quando o prazo chega, ou quando qualquer chamada a /me volta 401:
-    remove o token do navegador → mostra "Sessão expirada" ou "Sessão inválida".
-· "Encerrar sessão" remove os dados locais e volta à página de acesso.
-· Não há logout no servidor: um token copiado continua válido até expirar.
+· GET /me com Authorization: Bearer <access>
+    → valida assinatura, exp, type, jti não revogado e sessão ativa; busca o usuário pelo sub.
+· Access vencido (detectado pelo exp ou por um 401):
+    frontend → POST /refresh com o cookie e X-CSRF-Token (uma renovação por vez, entre abas)
+    servidor → confere o CSRF da sessão, invalida o refresh usado, emite novo refresh, CSRF e access.
+    Se a renovação falhar → o frontend limpa a sessão e mostra "Sessão expirada/inválida".
+· Refresh já trocado reapresentado:
+    dentro de REFRESH_REUSE_GRACE_SECONDS → 401, sessão mantida (corrida entre abas);
+    depois disso → 401 e a sessão inteira é revogada (alguém tem uma cópia).
+· "Encerrar sessão": POST /logout com o Bearer (e o CSRF, se houver)
+    → revoga o jti, a sessão e todos os seus tokens; apaga os cookies.
+    Só com o cookie (access vencido) → exige X-CSRF-Token válido.
+· A sessão tem prazo absoluto (REFRESH_TOKEN_EXPIRE_MINUTES desde o login).
 ```
 
 ### Proteção de rota (backend)
 
 ```python
 # backend/dependencies/dependencies.py
-def get_current_user(token = Depends(oauth2_scheme), user_repo = Depends(get_user_repository)) -> User:
-    payload = decode_access_token(token)        # None se assinatura/expiração falharem
-    email = payload.get("sub")                  # identidade
-    user = user_repo.get_by_email(email)        # precisa existir
-    return user                                 # qualquer falha acima → 401
+def get_access_payload(token = Depends(oauth2_scheme), tokens = Depends(get_token_service)) -> dict:
+    payload = tokens.validate_access(token)   # assinatura, exp, type, jti revogado, sessão ativa
+    if payload is None: raise 401
+    return payload
+
+def get_current_user(payload = Depends(get_access_payload), user_repo = Depends(get_user_repository)) -> User:
+    return user_repo.get_by_email(payload["sub"]) or raise 401
 ```
 
 ---
@@ -130,19 +169,23 @@ O frontend é estático (HTML, CSS e JS nativos), servido pelo FastAPI na raiz. 
 
 | Página | Responsabilidade | Endpoints usados |
 |---|---|---|
-| `index.html` | Entrar e criar conta, aviso de sessão ativa/expirada, indicador de disponibilidade | `/token`, `/register`, `/health` |
-| `home.html` | Painel: identidade, conta, sessão, token oculto, atualizar e encerrar sessão | `/me` |
-| `status.html` | Verificações reais, legenda de estados, contratos e histórico da visita | `/health`, `/me` |
+| `index.html` | Entrar e criar conta (com nome opcional), avisos de sessão, indicador de disponibilidade, bloqueio após 429 | `/token`, `/register`, `/health` |
+| `home.html` | Painel: identidade, conta, sessão, renovação automática, token oculto, encerrar sessão | `/me`, `/refresh`, `/logout` |
+| `status.html` | Verificações reais, legenda de estados, contratos e histórico da visita | `/health`, `/me` (e `/refresh` se o token tiver vencido) |
+
+`js/core/auth.js` concentra as chamadas autenticadas (`withSession`), a renovação serializada (uma por aba e, com Web Locks, uma entre abas) e o logout.
 
 ### Estado guardado no navegador
 
 | Chave | Armazenamento | Conteúdo |
 |---|---|---|
-| `auth_token` | `sessionStorage` | o JWT de acesso |
-| `auth_login_at` | `sessionStorage` | horário do login neste navegador (milissegundos) |
+| `auth_token` | `sessionStorage` | o access token |
+| `auth_login_at` | `sessionStorage` | horário do login neste navegador (preservado nas renovações) |
 | `auth_theme` | `localStorage` | `dark` ou `light`, só quando o usuário escolhe |
+| `__Host-auth_refresh` | cookie `HttpOnly` | refresh token — o JavaScript não lê |
+| `__Host-auth_csrf` | cookie legível | token CSRF da sessão, enviado em `X-CSRF-Token` |
 
-As chaves `auth_pass` (senha em texto) e `auth_email`, gravadas por versões anteriores, são apagadas automaticamente na carga de qualquer página.
+Com `COOKIE_SECURE=false` os cookies perdem o prefixo `__Host-`. As chaves `auth_pass` e `auth_email` de versões antigas são apagadas automaticamente.
 
 ### Estados da página de status
 
@@ -150,9 +193,9 @@ As chaves `auth_pass` (senha em texto) e `auth_email`, gravadas por versões ant
 |---|---|
 | Disponível | a rota respondeu com sucesso agora |
 | Indisponível | a rota respondeu com erro HTTP (4xx/5xx, exceto 401) |
-| Falha de autenticação | `/me` respondeu 401 (o token local é removido) |
+| Falha de autenticação | `/me` respondeu 401 e a renovação também falhou (o token local é removido) |
 | Falha de comunicação | sem resposta (rede, servidor fora, timeout de 10 s) |
-| Não verificado | a rota não foi consultada: `/register` e `/token` nunca são chamados automaticamente, e `/me` precisa de sessão |
+| Não verificado | a rota não foi consultada: `/register`, `/token`, `/refresh` e `/logout` nunca são chamados pela página, e `/me` precisa de sessão |
 
 ---
 
@@ -160,16 +203,20 @@ As chaves `auth_pass` (senha em texto) e `auth_email`, gravadas por versões ant
 
 **FastAPI** — validação automática com Pydantic, documentação em `/docs` e injeção de dependências com pouco código.
 
-**Camadas** — rotas → service → repository → model. O service não conhece HTTP além das exceções e o repositório isola o armazenamento: trocar o dicionário em memória por um banco afeta só `user_repository.py`.
+**Camadas** — rotas → services → repository → model, com `core/` para o que é transversal (configuração, segurança, e-mail, rede, cookies, rate limit, headers). Trocar o armazenamento em memória por um banco afeta o repositório e o `TokenService`.
 
-**Armazenamento em memória** — escolha deliberada para manter o foco na autenticação, sem dependência externa. O custo é perder os dados a cada reinício.
+**Estado em memória** — usuários, sessões e contadores ficam no processo. Mantém o projeto sem dependências externas; o custo é perder tudo a cada reinício e exigir uma única instância.
 
-**Frontend servido pelo backend** — `StaticFiles` montado em `/` depois das rotas da API: um único processo e um único container, sem Nginx e sem CORS (mesma origem).
+**Access Bearer + refresh em cookie** — o access token continua no corpo (compatível com Swagger, cURL e outros clientes Bearer) e é curto e revogável. O refresh token, de longa duração, fica em cookie `HttpOnly; Secure; SameSite=Strict` com CSRF por sessão. Colocar também o access token em cookie exigiria CSRF em todas as rotas e dois modos de autenticação.
 
-**JWT HS256 stateless** — sem sessão no servidor. O token carrega o mínimo (`sub`, `exp`).
+**Rate limiting próprio** — três contadores com janela deslizante, sem biblioteca nova, coerente com o estado em memória. O IP só vem de `X-Forwarded-For` quando há proxy confiável configurado.
 
-**Frontend sem framework** — três páginas pequenas não justificam build ou dependências. Módulos ES nativos dão organização (`js/core/` compartilhado e `js/pages/` por página) sem ferramenta extra.
+**Headers no servidor** — a CSP das páginas é a mesma do `<meta>` (um teste garante), acrescida de `frame-ancestors`, que só funciona por header.
 
-**Identidade do portfólio** — os tokens de cor, tipografia, raio e movimento vêm do design system de [gcruz.dev.br](https://gcruz.dev.br), para que os projetos do autor sejam reconhecidos como parte da mesma família.
+**Frontend servido pelo backend** — `StaticFiles` montado em `/` depois das rotas da API: um processo, um container, mesma origem (sem CORS) e cookies `SameSite=Strict` funcionando sem configuração extra.
+
+**Frontend sem framework** — módulos ES nativos (`js/core/` compartilhado e `js/pages/` por página), sem build.
+
+**Identidade do portfólio** — os tokens de cor, tipografia, raio e movimento vêm do design system de [gcruz.dev.br](https://gcruz.dev.br).
 
 <img width=100% src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6&height=120&section=footer"/>

@@ -1,9 +1,14 @@
 /* ==========================================================================
    core/session.js — Sessão no navegador
    --------------------------------------------------------------------------
-   Guarda SOMENTE o access token (no sessionStorage, como antes: o backend
-   entrega o JWT no corpo da resposta e não oferece cookie HttpOnly) e o
+   Guarda SOMENTE o access token (no sessionStorage: o backend entrega o
+   JWT de acesso no corpo da resposta, para manter o fluxo Bearer) e o
    instante do login neste navegador. Senha e e-mail não são gravados.
+
+   O refresh token fica num cookie HttpOnly que este código não consegue
+   ler. O que dá para ler é o cookie CSRF que o acompanha: a presença dele
+   indica que há uma sessão renovável, e o valor vai no header
+   X-CSRF-Token de /refresh e /logout.
 
    As versões anteriores gravavam `auth_pass` (a senha em texto puro) e
    `auth_email`; essas chaves são apagadas assim que este módulo carrega,
@@ -81,10 +86,35 @@ export function decodeJwt(token) {
     }
 }
 
-export function saveSession(token) {
+export function saveSession(token, { renewed = false } = {}) {
     store.set(TOKEN_KEY, token);
-    store.set(LOGIN_AT_KEY, String(Date.now()));
+    // Renovação mantém o horário do login original.
+    if (!renewed || !store.get(LOGIN_AT_KEY)) store.set(LOGIN_AT_KEY, String(Date.now()));
 }
+
+/* Nome com prefixo __Host- em HTTPS/localhost (COOKIE_SECURE) e sem ele
+   quando o servidor roda com cookies não-Secure. */
+const CSRF_COOKIE_NAMES = ["__Host-auth_csrf", "auth_csrf"];
+
+export function getCsrfToken() {
+    const cookies = Object.fromEntries(
+        document.cookie
+            .split(";")
+            .map((part) => part.trim())
+            .filter(Boolean)
+            .map((part) => {
+                const index = part.indexOf("=");
+                return [part.slice(0, index), decodeURIComponent(part.slice(index + 1))];
+            }),
+    );
+    for (const name of CSRF_COOKIE_NAMES) {
+        if (cookies[name]) return cookies[name];
+    }
+    return null;
+}
+
+/** Há uma sessão renovável no servidor (cookie CSRF presente)? */
+export const canRefresh = () => getCsrfToken() !== null;
 
 export function clearSession() {
     store.remove(TOKEN_KEY);
