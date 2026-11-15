@@ -260,6 +260,7 @@ Crie um arquivo `.env` na raiz do projeto:
 | `SECRET_KEY` | Chave secreta para assinar tokens JWT | — | ✅ Sim |
 | `ALGORITHM` | Algoritmo de assinatura JWT | `HS256` | Não |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Expiração do token em minutos | `60` | Não |
+| `PUBLIC_URL` | Endereço oficial (ex.: `https://authservice.gcruz.dev.br`). Quando definido, quem acessa pelo endereço `onrender.com` recebe um redirecionamento 308 para ele | vazio | Não |
 
 **Exemplo `.env`:**
 ```env
