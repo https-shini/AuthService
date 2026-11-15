@@ -100,7 +100,7 @@ const StatusPage = (() => {
 
   function clearLog() {
     const logBody = document.getElementById('status-log');
-    if (logBody) logBody.innerHTML = '';
+    if (logBody) logBody.replaceChildren();
   }
 
   /* ── Privado: status global (hero badge) ─────────────────── */
@@ -130,7 +130,13 @@ const StatusPage = (() => {
 
     const line = document.createElement('div');
     line.className = `log-line${type ? ` log-${type}` : ''}`;
-    line.innerHTML = `<span class="log-ts">${Utils.timestamp()}</span><span class="log-msg">${msg}</span>`;
+    const ts = document.createElement('span');
+    ts.className = 'log-ts';
+    ts.textContent = Utils.timestamp();
+    const text = document.createElement('span');
+    text.className = 'log-msg';
+    text.textContent = msg;
+    line.append(ts, text);
     container.appendChild(line);
 
     // Auto-scroll para o final

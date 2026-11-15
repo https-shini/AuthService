@@ -41,7 +41,7 @@ const Utils = (() => {
     function showAlert(id, msg, type) {
         const element = el(id);
         if (!element) return;
-        element.innerHTML = msg;
+        element.textContent = msg;
         element.className = `alert show ${type}`;
     }
 
@@ -50,14 +50,14 @@ const Utils = (() => {
         const element = el(id);
         if (!element) return;
         element.className = "alert";
-        element.innerHTML = "";
+        element.textContent = "";
     }
 
     /** Exibe alerta de página (temporário, 4s) */
     function showPageAlert(id, msg, type) {
         const element = el(id);
         if (!element) return;
-        element.innerHTML = msg;
+        element.textContent = msg;
         element.className = `alert page-alert show ${type}`;
         setTimeout(() => element.classList.remove("show"), 4000);
     }
@@ -150,16 +150,13 @@ const Utils = (() => {
         get token() {
             return _storage.getItem("auth_token");
         },
-        get pass() {
-            return _storage.getItem("auth_pass");
-        },
         get email() {
             return _storage.getItem("auth_email");
         },
 
-        save(token, pass, email) {
+        // A senha nunca é guardada no navegador: só o token e o e-mail.
+        save(token, email) {
             _storage.setItem("auth_token", token);
-            _storage.setItem("auth_pass", pass);
             _storage.setItem("auth_email", email);
         },
 

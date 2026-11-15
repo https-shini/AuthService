@@ -10,14 +10,12 @@ const HomePage = (() => {
     /* Estado local da página */
     const state = {
         token: null,
-        pass: null,
     };
 
     /* ── Inicialização ───────────────────────────────────────── */
 
     function init() {
         state.token = Utils.Session.token;
-        state.pass = Utils.Session.pass;
 
         const noSession = document.getElementById("no-session");
         const cardsGrid = document.querySelector(".cards-grid");
@@ -98,10 +96,6 @@ const HomePage = (() => {
 
         // Dot online
         document.getElementById("online-dot")?.classList.add("on");
-
-        // Senha real (apenas para exibição)
-        const passReal = document.getElementById("pass-real");
-        if (passReal && state.pass) passReal.textContent = state.pass;
     }
 
     /* ── Token JWT ───────────────────────────────────────────── */
@@ -141,33 +135,15 @@ const HomePage = (() => {
 
     /* ── Mostrar/ocultar senha ───────────────────────────────── */
 
-    function togglePassView() {
-        const mask = document.getElementById("pass-mask");
-        const real = document.getElementById("pass-real");
-        const icon = document.getElementById("pass-eye-icon");
-        if (!mask || !real) return;
-
-        const isHidden = real.style.display === "none";
-        mask.style.display = isHidden ? "none" : "inline";
-        real.style.display = isHidden ? "inline" : "none";
-
-        if (icon) {
-            icon.className = isHidden
-                ? "fa-regular fa-eye-slash"
-                : "fa-regular fa-eye";
-        }
-    }
-
     /* ── Logout ──────────────────────────────────────────────── */
 
     function logout() {
         Utils.Session.clear();
         state.token = null;
-        state.pass = null;
         location.href = "index.html";
     }
 
-    return { init, loadMe, copyToken, togglePassView, logout };
+    return { init, loadMe, copyToken, logout };
 })();
 
 /* ── Expõe globalmente para uso inline no HTML ─────────────── */
@@ -176,9 +152,6 @@ function loadMe() {
 }
 function copyToken() {
     HomePage.copyToken();
-}
-function togglePassView() {
-    HomePage.togglePassView();
 }
 function logout() {
     HomePage.logout();

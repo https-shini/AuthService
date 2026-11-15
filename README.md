@@ -9,7 +9,7 @@
 
 <div align="center">
 
-  [![API Docs](https://img.shields.io/badge/🌐%20API%20Docs-009688?style=for-the-badge)](https://authservice-mbul.onrender.com/docs)
+  [![API Docs](https://img.shields.io/badge/🌐%20API%20Docs-009688?style=for-the-badge)](https://authservice.gcruz.dev.br/docs)
   [![Licença](https://img.shields.io/badge/Licença-MIT-4ade80?style=for-the-badge)](./LICENSE)
   [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)](./Dockerfile)
   [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -31,10 +31,11 @@
 
 | | |
 |---|---|
-| 🔗 **Aplicação** | [authservice-mbul.onrender.com](https://authservice-mbul.onrender.com) |
-| 📖 **API Docs** | [authservice-mbul.onrender.com/docs](https://authservice-mbul.onrender.com/docs) |
-| 📡 **Health Check** | [authservice-mbul.onrender.com/health](https://authservice-mbul.onrender.com/health) |
+| 🔗 **Aplicação** | [authservice.gcruz.dev.br](https://authservice.gcruz.dev.br) |
+| 📖 **API Docs** | [authservice.gcruz.dev.br/docs](https://authservice.gcruz.dev.br/docs) |
+| 📡 **Health Check** | [authservice.gcruz.dev.br/health](https://authservice.gcruz.dev.br/health) |
 | ⚠️ **Aviso** | Hospedado no plano gratuito do Render — primeira requisição pode levar até **50 segundos** devido ao cold start |
+| 🗂️ **Dados** | Os usuários ficam **em memória**: cada reinício ou cold start do servidor apaga as contas criadas |
 
 </div>
 
@@ -231,20 +232,20 @@ Documentação interativa disponível em **`/docs`** após subir o serviço.
 
 **Registrar usuário:**
 ```bash
-curl -X POST https://authservice-mbul.onrender.com/register \
+curl -X POST https://authservice.gcruz.dev.br/register \
   -H "Content-Type: application/json" \
   -d '{"email": "usuario@email.com", "password": "Senha123"}'
 ```
 
 **Obter token:**
 ```bash
-curl -X POST https://authservice-mbul.onrender.com/token \
+curl -X POST https://authservice.gcruz.dev.br/token \
   -d "username=usuario@email.com&password=Senha123"
 ```
 
 **Acessar rota protegida:**
 ```bash
-curl https://authservice-mbul.onrender.com/me \
+curl https://authservice.gcruz.dev.br/me \
   -H "Authorization: Bearer SEU_TOKEN_AQUI"
 ```
 
@@ -259,6 +260,7 @@ Crie um arquivo `.env` na raiz do projeto:
 | `SECRET_KEY` | Chave secreta para assinar tokens JWT | — | ✅ Sim |
 | `ALGORITHM` | Algoritmo de assinatura JWT | `HS256` | Não |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Expiração do token em minutos | `60` | Não |
+| `PUBLIC_URL` | Endereço oficial (ex.: `https://authservice.gcruz.dev.br`). Quando definido, quem acessa pelo endereço `onrender.com` recebe um redirecionamento 308 para ele | vazio | Não |
 
 **Exemplo `.env`:**
 ```env
