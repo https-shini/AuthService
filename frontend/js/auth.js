@@ -191,7 +191,7 @@ const AuthPage = (() => {
             const data = await res.json();
 
             if (res.ok) {
-                Utils.Session.save(data.access_token, password, email);
+                Utils.Session.save(data.access_token, email);
                 Utils.showAlert(
                     "log-alert",
                     "✓ autenticado — redirecionando...",
